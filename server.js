@@ -34,7 +34,7 @@ function mapCase(r) {
 }
 
 function mapScoreEntry(r) {
-  return { id: String(r.id), member: r.member, points: r.points, reason: r.reason, createdAt: r.created_at.toISOString() };
+  return { id: String(r.id), scope: r.scope, member: r.member, points: r.points, reason: r.reason, createdAt: r.created_at.toISOString() };
 }
 
 function toIntOrNull(v) {
@@ -114,9 +114,10 @@ app.delete('/api/cases/:id', async (req, res) => {
 
 // ---- Scores ----
 app.get('/api/scores', async (req, res) => {
-  const [membersRes, totalsRes, entriesRes] = await Promise.all([
+  const [membersRes, totalsRes, teamTotalRes, entriesRes] = await Promise.all([
     pool.query('select * from members order by id'),
-    pool.query('select member, coalesce(sum(points), 0) as total from score_entries group by member'),
+    pool.query("select member, coalesce(sum(points), 0) as total from score_entries where scope = 'individual' group by member"),
+    pool.query("select coalesce(sum(points), 0) as total from score_entries where scope = 'team'"),
     pool.query('select * from score_entries order by created_at desc')
   ]);
   const totals = {};
@@ -128,19 +129,21 @@ app.get('/api/scores', async (req, res) => {
 
   res.json({
     leaderboard,
-    teamTotal: leaderboard.reduce((s, m) => s + m.points, 0),
+    teamTotal: Number(teamTotalRes.rows[0].total),
     entries: entriesRes.rows.map(mapScoreEntry)
   });
 });
 
 app.post('/api/scores', async (req, res) => {
-  const { member, points, reason } = req.body;
-  if (!member || typeof points !== 'number') {
-    return res.status(400).json({ error: 'member and numeric points required' });
+  const { points, reason } = req.body;
+  const scope = req.body.scope === 'team' ? 'team' : 'individual';
+  const member = scope === 'team' ? null : req.body.member;
+  if (typeof points !== 'number' || (scope === 'individual' && !member)) {
+    return res.status(400).json({ error: 'member and numeric points required for individual scores' });
   }
   const { rows } = await pool.query(
-    'insert into score_entries (member, points, reason) values ($1, $2, $3) returning *',
-    [member, points, reason || '']
+    'insert into score_entries (scope, member, points, reason) values ($1, $2, $3, $4) returning *',
+    [scope, member, points, reason || '']
   );
   res.json(mapScoreEntry(rows[0]));
 });

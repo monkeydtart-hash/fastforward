@@ -182,6 +182,7 @@ async function loadScores() {
   await fetchMembers();
   fillMemberSelect(document.getElementById('s-member'));
   const scores = await api('/scores');
+  document.getElementById('scores-team-total').textContent = scores.teamTotal;
   renderLeaderboard('scores-leaderboard', scores.leaderboard);
 
   const tbody = document.getElementById('score-history-tbody');
@@ -195,7 +196,7 @@ async function loadScores() {
   tbody.innerHTML = scores.entries.map(e => `
     <tr>
       <td>${new Date(e.createdAt).toLocaleDateString('th-TH')}</td>
-      <td>${escapeHtml(e.member)}</td>
+      <td>${e.scope === 'team' ? 'ทีม' : escapeHtml(e.member || '-')}</td>
       <td style="font-weight:700">${e.points > 0 ? '+' : ''}${e.points}</td>
       <td>${escapeHtml(e.reason || '-')}</td>
       <td><button class="ghost" data-del-score="${e.id}">ลบ</button></td>
@@ -211,16 +212,23 @@ async function loadScores() {
   });
 }
 
+document.getElementById('s-scope').addEventListener('change', (e) => {
+  document.getElementById('s-member-field').style.display = e.target.value === 'team' ? 'none' : '';
+});
+
 document.getElementById('form-score').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const scope = document.getElementById('s-scope').value;
   const payload = {
-    member: document.getElementById('s-member').value,
+    scope,
+    member: scope === 'team' ? null : document.getElementById('s-member').value,
     points: Number(document.getElementById('s-points').value),
     reason: document.getElementById('s-reason').value
   };
   await api('/scores', { method: 'POST', body: JSON.stringify(payload) });
   toast('บันทึกคะแนนแล้ว');
   e.target.reset();
+  document.getElementById('s-member-field').style.display = '';
   loadScores();
 });
 

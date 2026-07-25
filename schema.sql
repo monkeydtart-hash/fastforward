@@ -26,7 +26,8 @@ create table if not exists cases (
 
 create table if not exists score_entries (
   id serial primary key,
-  member text not null,
+  scope text not null default 'individual' check (scope in ('individual', 'team')),
+  member text,
   points integer not null,
   reason text not null default '',
   created_at timestamptz not null default now()

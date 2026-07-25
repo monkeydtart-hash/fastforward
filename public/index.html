@@ -162,24 +162,43 @@
       <form class="stack" id="form-score">
         <div class="row2">
           <div class="field">
+            <label>ประเภทคะแนน</label>
+            <select id="s-scope">
+              <option value="individual">รายบุคคล</option>
+              <option value="team">ทีม</option>
+            </select>
+          </div>
+          <div class="field" id="s-member-field">
             <label>สมาชิก</label>
             <select id="s-member" required></select>
           </div>
+        </div>
+        <div class="row2">
           <div class="field">
             <label>แต้ม (+/-)</label>
             <input type="number" id="s-points" required>
           </div>
-        </div>
-        <div class="field">
-          <label>เหตุผล / ที่มาแต้ม</label>
-          <input type="text" id="s-reason" placeholder="เช่น ปิดเคสได้, ทำกิจกรรมทีม">
+          <div class="field">
+            <label>เหตุผล / ที่มาแต้ม</label>
+            <input type="text" id="s-reason" placeholder="เช่น ปิดเคสได้, ทำกิจกรรมทีม">
+          </div>
         </div>
         <button type="submit" class="primary">บันทึกคะแนน</button>
       </form>
     </div>
 
     <div class="card">
-      <h2>อันดับคะแนน</h2>
+      <h2>คะแนนทีม (แยกจากรายบุคคล)</h2>
+      <div class="stat-hero">
+        <div class="value-row">
+          <span class="value" id="scores-team-total">0</span>
+          <span class="target">แต้ม</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>อันดับคะแนนรายบุคคล</h2>
       <div id="scores-leaderboard"></div>
     </div>
 
