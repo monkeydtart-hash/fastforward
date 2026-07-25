@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fast Forward</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>⚡ Fast Forward ทีม Smart Agent</h1>
+</header>
+
+<nav class="tabs">
+  <button data-tab="dashboard" class="active">แดชบอร์ด</button>
+  <button data-tab="propose">เสนอเคส</button>
+  <button data-tab="cases">เคสทั้งหมด</button>
+  <button data-tab="scores">คะแนน</button>
+  <button data-tab="members">สมาชิก</button>
+</nav>
+
+<main>
+
+  <section id="tab-dashboard">
+    <div class="card">
+      <h2>คะแนนรวมทีม</h2>
+      <div class="stat-hero">
+        <div class="value-row">
+          <span class="value" id="dash-team-total">0</span>
+          <span class="target">แต้ม</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>อันดับคะแนนรายบุคคล</h2>
+      <div id="dash-leaderboard"></div>
+    </div>
+
+    <div class="card">
+      <h2>เคสล่าสุด</h2>
+      <div id="dash-recent-cases"></div>
+    </div>
+  </section>
+
+  <section id="tab-propose" style="display:none">
+    <div class="card">
+      <h2>เสนอเคสใหม่</h2>
+      <form class="stack" id="form-case">
+        <div class="row2">
+          <div class="field">
+            <label>ผู้เสนอขาย</label>
+            <select id="c-proposedBy" required></select>
+          </div>
+          <div class="field">
+            <label>วันที่เสนอ</label>
+            <input type="date" id="c-dateProposed" required>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>ชื่อลูกค้า</label>
+            <input type="text" id="c-customerName" placeholder="ชื่อ-นามสกุล">
+          </div>
+          <div class="field">
+            <label>เบอร์โทร</label>
+            <input type="text" id="c-phone" placeholder="08xxxxxxxx">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>เพศ</label>
+            <select id="c-gender">
+              <option value="">-</option>
+              <option value="ชาย">ชาย</option>
+              <option value="หญิง">หญิง</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>อายุ</label>
+            <input type="number" id="c-age" min="0">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>แบบประกัน</label>
+            <input type="text" id="c-planType" placeholder="เช่น สะสมทรัพย์, ตลอดชีพ">
+          </div>
+          <div class="field">
+            <label>บริษัทประกัน</label>
+            <input type="text" id="c-company">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>ทุนประกัน (บาท)</label>
+            <input type="number" id="c-sumInsured" min="0">
+          </div>
+          <div class="field">
+            <label>เบี้ยประกัน (บาท)</label>
+            <input type="number" id="c-premium" min="0">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>สถานะ</label>
+            <select id="c-status">
+              <option value="เสนอแล้ว">เสนอแล้ว</option>
+              <option value="รอนัด">รอนัด</option>
+              <option value="ปิดได้">ปิดได้</option>
+              <option value="ไม่ปิด">ไม่ปิด</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>วันนัดติดตาม</label>
+            <input type="date" id="c-followUpDate">
+          </div>
+        </div>
+        <div class="field">
+          <label>เหตุผลที่ไม่ปิด (ถ้ามี)</label>
+          <input type="text" id="c-notCloseReason">
+        </div>
+        <div class="field">
+          <label>หมายเหตุ</label>
+          <textarea id="c-note" rows="2"></textarea>
+        </div>
+        <button type="submit" class="primary">บันทึกเคส</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="tab-cases" style="display:none">
+    <div class="card">
+      <div class="section-header">
+        <h2 style="margin:0">เคสทั้งหมด</h2>
+      </div>
+      <div class="table-scroll">
+        <table class="data" id="cases-table">
+          <thead>
+            <tr>
+              <th>วันที่เสนอ</th>
+              <th>ลูกค้า</th>
+              <th>แบบประกัน</th>
+              <th>บริษัท</th>
+              <th>เบี้ยประกัน</th>
+              <th>สถานะ</th>
+              <th>ผู้เสนอขาย</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="cases-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="cases-empty" style="display:none">ยังไม่มีเคส</div>
+    </div>
+  </section>
+
+  <section id="tab-scores" style="display:none">
+    <div class="card">
+      <h2>เพิ่มคะแนน</h2>
+      <form class="stack" id="form-score">
+        <div class="row2">
+          <div class="field">
+            <label>สมาชิก</label>
+            <select id="s-member" required></select>
+          </div>
+          <div class="field">
+            <label>แต้ม (+/-)</label>
+            <input type="number" id="s-points" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>เหตุผล / ที่มาแต้ม</label>
+          <input type="text" id="s-reason" placeholder="เช่น ปิดเคสได้, ทำกิจกรรมทีม">
+        </div>
+        <button type="submit" class="primary">บันทึกคะแนน</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>อันดับคะแนน</h2>
+      <div id="scores-leaderboard"></div>
+    </div>
+
+    <div class="card">
+      <h2>ประวัติการให้คะแนน</h2>
+      <div class="table-scroll">
+        <table class="data" id="score-history-table">
+          <thead>
+            <tr><th>วันที่</th><th>สมาชิก</th><th>แต้ม</th><th>เหตุผล</th><th></th></tr>
+          </thead>
+          <tbody id="score-history-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="score-history-empty" style="display:none">ยังไม่มีประวัติ</div>
+    </div>
+  </section>
+
+  <section id="tab-members" style="display:none">
+    <div class="card">
+      <h2>รายชื่อสมาชิกทีม</h2>
+      <div class="table-scroll">
+        <table class="data" id="members-table">
+          <thead>
+            <tr><th>ชื่อ</th><th>ตำแหน่ง</th><th>เบอร์โทร</th><th></th></tr>
+          </thead>
+          <tbody id="members-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="members-empty" style="display:none">ยังไม่มีสมาชิก</div>
+    </div>
+
+    <div class="card">
+      <h2>เพิ่มสมาชิก</h2>
+      <form class="stack" id="form-member">
+        <div class="row2">
+          <div class="field">
+            <label>ชื่อ</label>
+            <input type="text" id="m-name" required>
+          </div>
+          <div class="field">
+            <label>ตำแหน่ง</label>
+            <input type="text" id="m-role" placeholder="เช่น ประธาน, สมาชิก">
+          </div>
+        </div>
+        <div class="field">
+          <label>เบอร์โทร</label>
+          <input type="text" id="m-phone">
+        </div>
+        <button type="submit" class="primary">เพิ่มสมาชิก</button>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
