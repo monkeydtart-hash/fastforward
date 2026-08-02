@@ -64,13 +64,14 @@ function escapeAttr(str) { return escapeHtml(str); }
 
 // ---------- Dashboard ----------
 async function loadDashboard() {
-  const [scores, cases] = await Promise.all([
-    api('/scores'), api('/cases')
+  const [scores, cases, premiums] = await Promise.all([
+    api('/scores'), api('/cases'), api('/premiums')
   ]);
 
   document.getElementById('dash-team-total').textContent = scores.teamTotal || 0;
 
   renderLeaderboard('dash-leaderboard', scores.leaderboard);
+  renderPremiumLeaderboard('dash-premium-leaderboard', premiums.leaderboard);
 
   const recent = cases.slice(0, 5);
   const box = document.getElementById('dash-recent-cases');
