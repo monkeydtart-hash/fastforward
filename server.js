@@ -37,6 +37,16 @@ function mapScoreEntry(r) {
   return { id: String(r.id), scope: r.scope, member: r.member, points: r.points, reason: r.reason, createdAt: r.created_at.toISOString() };
 }
 
+const OUR_TEAM = 'ทีมเรา';
+
+function mapCompetitorTeam(r) {
+  return { id: String(r.id), name: r.name };
+}
+
+function mapPremiumEntry(r) {
+  return { id: String(r.id), team: r.team, amount: Number(r.amount), note: r.note, createdAt: r.created_at.toISOString() };
+}
+
 function toIntOrNull(v) {
   return v === '' || v === undefined || v === null ? null : Number(v);
 }
@@ -150,6 +160,67 @@ app.post('/api/scores', async (req, res) => {
 
 app.delete('/api/scores/:id', async (req, res) => {
   await pool.query('delete from score_entries where id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ---- Competitor teams ----
+app.get('/api/competitor-teams', async (req, res) => {
+  const { rows } = await pool.query('select * from competitor_teams order by id');
+  res.json(rows.map(mapCompetitorTeam));
+});
+
+app.post('/api/competitor-teams', async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const { rows } = await pool.query(
+    'insert into competitor_teams (name) values ($1) returning *',
+    [name]
+  );
+  res.json(mapCompetitorTeam(rows[0]));
+});
+
+app.delete('/api/competitor-teams/:id', async (req, res) => {
+  await pool.query('delete from competitor_teams where id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ---- Premiums ----
+app.get('/api/premiums', async (req, res) => {
+  const [teamsRes, totalsRes, entriesRes] = await Promise.all([
+    pool.query('select * from competitor_teams order by id'),
+    pool.query('select team, coalesce(sum(amount), 0) as total from premium_entries group by team'),
+    pool.query('select * from premium_entries order by created_at desc')
+  ]);
+  const totals = {};
+  for (const r of totalsRes.rows) totals[r.team] = Number(r.total);
+
+  const teamNames = [OUR_TEAM, ...teamsRes.rows.map(t => t.name)];
+  const leaderboard = teamNames
+    .map(name => ({ team: name, total: totals[name] || 0 }))
+    .sort((a, b) => b.total - a.total);
+
+  res.json({
+    ourTeam: OUR_TEAM,
+    leaderboard,
+    competitorTeams: teamsRes.rows.map(mapCompetitorTeam),
+    entries: entriesRes.rows.map(mapPremiumEntry)
+  });
+});
+
+app.post('/api/premiums', async (req, res) => {
+  const { team, amount, note } = req.body;
+  if (!team || typeof amount !== 'number') {
+    return res.status(400).json({ error: 'team and numeric amount required' });
+  }
+  const { rows } = await pool.query(
+    'insert into premium_entries (team, amount, note) values ($1, $2, $3) returning *',
+    [team, amount, note || '']
+  );
+  res.json(mapPremiumEntry(rows[0]));
+});
+
+app.delete('/api/premiums/:id', async (req, res) => {
+  await pool.query('delete from premium_entries where id = $1', [req.params.id]);
   res.json({ ok: true });
 });
 

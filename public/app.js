@@ -40,6 +40,7 @@ function loadTab(tab) {
   if (tab === 'propose') loadProposeForm();
   if (tab === 'cases') loadCases();
   if (tab === 'scores') loadScores();
+  if (tab === 'premiums') loadPremiums();
   if (tab === 'members') loadMembers();
 }
 
@@ -230,6 +231,115 @@ document.getElementById('form-score').addEventListener('submit', async (e) => {
   e.target.reset();
   document.getElementById('s-member-field').style.display = '';
   loadScores();
+});
+
+// ---------- Premiums ----------
+const OUR_TEAM = 'ทีมเรา';
+let competitorTeamsCache = [];
+
+function fillTeamSelect(select) {
+  const names = [OUR_TEAM, ...competitorTeamsCache.map(t => t.name)];
+  select.innerHTML = names.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
+}
+
+function renderPremiumLeaderboard(elId, leaderboard) {
+  const box = document.getElementById(elId);
+  if (!leaderboard.length) {
+    box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
+    return;
+  }
+  const max = Math.max(1, ...leaderboard.map(t => t.total));
+  box.innerHTML = leaderboard.map((t, i) => {
+    const pct = Math.max(3, Math.round((Math.max(0, t.total) / max) * 100));
+    const ours = t.team === OUR_TEAM;
+    return `
+      <div class="leaderboard-row">
+        <div class="rank ${i === 0 ? 'top1' : ''}">${i + 1}</div>
+        <div class="name-bar">
+          <div class="name">${escapeHtml(t.team)} ${ours ? '<span class="role">(เรา)</span>' : ''}</div>
+          <div class="bar-track"><div class="bar-fill${ours ? ' ours' : ''}" style="width:${pct}%"></div></div>
+        </div>
+        <div class="points">${t.total.toLocaleString()}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadPremiums() {
+  competitorTeamsCache = await api('/competitor-teams');
+  fillTeamSelect(document.getElementById('p-team'));
+
+  const premiums = await api('/premiums');
+  renderPremiumLeaderboard('premium-leaderboard', premiums.leaderboard);
+
+  const tbody = document.getElementById('premium-history-tbody');
+  const empty = document.getElementById('premium-history-empty');
+  if (!premiums.entries.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    tbody.innerHTML = premiums.entries.map(e => `
+      <tr>
+        <td>${new Date(e.createdAt).toLocaleDateString('th-TH')}</td>
+        <td>${escapeHtml(e.team)}</td>
+        <td style="font-weight:700">${e.amount.toLocaleString()}</td>
+        <td>${escapeHtml(e.note || '-')}</td>
+        <td><button class="ghost" data-del-premium="${e.id}">ลบ</button></td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('[data-del-premium]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('ลบรายการนี้?')) return;
+        await api('/premiums/' + btn.dataset.delPremium, { method: 'DELETE' });
+        loadPremiums();
+      });
+    });
+  }
+
+  const ctBody = document.getElementById('competitor-teams-tbody');
+  const ctEmpty = document.getElementById('competitor-teams-empty');
+  if (!competitorTeamsCache.length) {
+    ctBody.innerHTML = '';
+    ctEmpty.style.display = 'block';
+  } else {
+    ctEmpty.style.display = 'none';
+    ctBody.innerHTML = competitorTeamsCache.map(t => `
+      <tr>
+        <td>${escapeHtml(t.name)}</td>
+        <td><button class="ghost" data-del-team="${t.id}">ลบ</button></td>
+      </tr>
+    `).join('');
+    ctBody.querySelectorAll('[data-del-team]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('ลบทีมนี้?')) return;
+        await api('/competitor-teams/' + btn.dataset.delTeam, { method: 'DELETE' });
+        loadPremiums();
+      });
+    });
+  }
+}
+
+document.getElementById('form-premium').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    team: document.getElementById('p-team').value,
+    amount: Number(document.getElementById('p-amount').value),
+    note: document.getElementById('p-note').value
+  };
+  await api('/premiums', { method: 'POST', body: JSON.stringify(payload) });
+  toast('บันทึกยอดเบี้ยแล้ว');
+  e.target.reset();
+  loadPremiums();
+});
+
+document.getElementById('form-competitor-team').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = { name: document.getElementById('ct-name').value };
+  await api('/competitor-teams', { method: 'POST', body: JSON.stringify(payload) });
+  toast('เพิ่มทีมคู่แข่งแล้ว');
+  e.target.reset();
+  loadPremiums();
 });
 
 // ---------- Members ----------

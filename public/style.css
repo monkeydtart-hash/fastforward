@@ -195,6 +195,9 @@ main {
   background: var(--series-blue);
   border-radius: 999px;
 }
+.leaderboard-row .bar-fill.ours {
+  background: var(--status-good);
+}
 .leaderboard-row .points {
   font-variant-numeric: tabular-nums;
   font-weight: 700;

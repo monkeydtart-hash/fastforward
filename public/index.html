@@ -17,6 +17,7 @@
   <button data-tab="propose">เสนอเคส</button>
   <button data-tab="cases">เคสทั้งหมด</button>
   <button data-tab="scores">คะแนน</button>
+  <button data-tab="premiums">ยอดเบี้ย</button>
   <button data-tab="members">สมาชิก</button>
 </nav>
 
@@ -213,6 +214,67 @@
         </table>
       </div>
       <div class="empty" id="score-history-empty" style="display:none">ยังไม่มีประวัติ</div>
+    </div>
+  </section>
+
+  <section id="tab-premiums" style="display:none">
+    <div class="card">
+      <h2>บันทึกยอดเบี้ย</h2>
+      <form class="stack" id="form-premium">
+        <div class="row2">
+          <div class="field">
+            <label>ทีม</label>
+            <select id="p-team" required></select>
+          </div>
+          <div class="field">
+            <label>ยอดเบี้ย (บาท)</label>
+            <input type="number" id="p-amount" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>หมายเหตุ</label>
+          <input type="text" id="p-note" placeholder="เช่น ยอดเดือน ส.ค., เคสลูกค้า...">
+        </div>
+        <button type="submit" class="primary">บันทึกยอดเบี้ย</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>ยอดเบี้ยทีมเรา vs ทีมคู่แข่ง</h2>
+      <div id="premium-leaderboard"></div>
+    </div>
+
+    <div class="card">
+      <h2>ประวัติการบันทึกยอดเบี้ย</h2>
+      <div class="table-scroll">
+        <table class="data" id="premium-history-table">
+          <thead>
+            <tr><th>วันที่</th><th>ทีม</th><th>ยอดเบี้ย</th><th>หมายเหตุ</th><th></th></tr>
+          </thead>
+          <tbody id="premium-history-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="premium-history-empty" style="display:none">ยังไม่มีประวัติ</div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <h2 style="margin:0">จัดการทีมคู่แข่ง</h2>
+      </div>
+      <div class="table-scroll">
+        <table class="data" id="competitor-teams-table">
+          <thead><tr><th>ชื่อทีม</th><th></th></tr></thead>
+          <tbody id="competitor-teams-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="competitor-teams-empty" style="display:none">ยังไม่มีทีมคู่แข่ง</div>
+      <form class="stack" id="form-competitor-team" style="margin-top:12px">
+        <div class="field">
+          <label>เพิ่มทีมคู่แข่ง</label>
+          <input type="text" id="ct-name" placeholder="ชื่อทีม" required>
+        </div>
+        <button type="submit" class="primary">เพิ่มทีม</button>
+      </form>
     </div>
   </section>
 

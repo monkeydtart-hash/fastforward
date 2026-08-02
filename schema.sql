@@ -33,6 +33,19 @@ create table if not exists score_entries (
   created_at timestamptz not null default now()
 );
 
+create table if not exists competitor_teams (
+  id serial primary key,
+  name text not null unique
+);
+
+create table if not exists premium_entries (
+  id serial primary key,
+  team text not null,
+  amount numeric not null,
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+
 insert into members (name, role, phone)
 select v.name, v.role, v.phone
 from (values
