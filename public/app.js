@@ -101,7 +101,7 @@ function renderLeaderboard(elId, leaderboard) {
     const pct = Math.max(3, Math.round((Math.max(0, m.points) / max) * 100));
     return `
       <div class="leaderboard-row">
-        <div class="rank ${i === 0 ? 'top1' : ''}">${i + 1}</div>
+        <div class="rank ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</div>
         <div class="name-bar">
           <div class="name">${escapeHtml(m.name)} <span class="role">${escapeHtml(m.role || '')}</span></div>
           <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
