@@ -1,11 +1,12 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { pool } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3100;
 
-app.use(express.json());
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 function mapMember(r) {
@@ -222,6 +223,71 @@ app.post('/api/premiums', async (req, res) => {
 app.delete('/api/premiums/:id', async (req, res) => {
   await pool.query('delete from premium_entries where id = $1', [req.params.id]);
   res.json({ ok: true });
+});
+
+// ---- LINE webhook: record scores announced in the LINE group ----
+function verifyLineSignature(req) {
+  const signature = req.get('x-line-signature');
+  if (!signature || !process.env.LINE_CHANNEL_SECRET) return false;
+  const hash = crypto
+    .createHmac('sha256', process.env.LINE_CHANNEL_SECRET)
+    .update(req.rawBody)
+    .digest('base64');
+  return hash === signature;
+}
+
+function parseScoreMessage(text) {
+  const match = text.trim().match(/^([+-]\d+)\s+(\S+)\s*(.*)$/s);
+  if (!match) return null;
+  return { points: parseInt(match[1], 10), target: match[2], reason: match[3].trim() };
+}
+
+async function replyLine(replyToken, text) {
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return;
+  await fetch('https://api.line.me/v2/bot/message/reply', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
+    },
+    body: JSON.stringify({ replyToken, messages: [{ type: 'text', text }] })
+  });
+}
+
+app.post('/webhook/line', async (req, res) => {
+  if (!verifyLineSignature(req)) return res.status(403).end();
+  res.status(200).end();
+
+  const events = req.body.events || [];
+  for (const event of events) {
+    if (event.type !== 'message' || event.message.type !== 'text') continue;
+    const parsed = parseScoreMessage(event.message.text);
+    if (!parsed) continue;
+
+    const sign = parsed.points > 0 ? '+' : '';
+    try {
+      if (parsed.target === 'ทีม') {
+        await pool.query(
+          'insert into score_entries (scope, member, points, reason) values ($1, $2, $3, $4)',
+          ['team', null, parsed.points, parsed.reason]
+        );
+        await replyLine(event.replyToken, `✅ บันทึก ${sign}${parsed.points} คะแนนทีม แล้วครับ${parsed.reason ? ` (${parsed.reason})` : ''}`);
+      } else {
+        const { rows: memberRows } = await pool.query('select * from members where name = $1', [parsed.target]);
+        if (!memberRows.length) {
+          await replyLine(event.replyToken, `⚠️ ไม่พบชื่อ "${parsed.target}" ในระบบ พิมพ์ชื่อให้ตรงกับสมาชิกในทีมนะครับ`);
+          continue;
+        }
+        await pool.query(
+          'insert into score_entries (scope, member, points, reason) values ($1, $2, $3, $4)',
+          ['individual', parsed.target, parsed.points, parsed.reason]
+        );
+        await replyLine(event.replyToken, `✅ บันทึก ${sign}${parsed.points} ให้ ${parsed.target} แล้วครับ${parsed.reason ? ` (${parsed.reason})` : ''}`);
+      }
+    } catch (err) {
+      console.error('LINE webhook score error:', err);
+    }
+  }
 });
 
 app.listen(PORT, () => {
