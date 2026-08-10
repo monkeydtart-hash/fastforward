@@ -237,9 +237,16 @@ function verifyLineSignature(req) {
 }
 
 function parseScoreMessage(text) {
-  const match = text.trim().match(/^([+-]\d+)\s+(\S+)\s*(.*)$/s);
-  if (!match) return null;
-  return { points: parseInt(match[1], 10), target: match[2], reason: match[3].trim() };
+  const t = text.trim();
+  let match = t.match(/^([+-]\d+)\s+(\S+)\s*(.*)$/s);
+  if (match) {
+    return { points: parseInt(match[1], 10), target: match[2], reason: match[3].trim() };
+  }
+  match = t.match(/^คะแนน(\S+)\s+([+-]\d+)\s*(.*)$/s);
+  if (match) {
+    return { points: parseInt(match[2], 10), target: match[1], reason: match[3].trim() };
+  }
+  return null;
 }
 
 function parsePremiumMessage(text) {
