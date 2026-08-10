@@ -242,6 +242,12 @@ function parseScoreMessage(text) {
   return { points: parseInt(match[1], 10), target: match[2], reason: match[3].trim() };
 }
 
+function parsePremiumMessage(text) {
+  const match = text.trim().match(/^เบี้ย\s+(\S+)\s+(\d+(?:\.\d+)?)\s*(.*)$/s);
+  if (!match) return null;
+  return { team: match[1], amount: parseFloat(match[2]), note: match[3].trim() };
+}
+
 async function replyLine(replyToken, text) {
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return;
   await fetch('https://api.line.me/v2/bot/message/reply', {
@@ -261,6 +267,28 @@ app.post('/webhook/line', async (req, res) => {
   const events = req.body.events || [];
   for (const event of events) {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
+
+    const premium = parsePremiumMessage(event.message.text);
+    if (premium) {
+      try {
+        const teamName = premium.team === 'ทีมเรา' ? OUR_TEAM : premium.team;
+        if (teamName !== OUR_TEAM) {
+          const { rows: teamRows } = await pool.query('select * from competitor_teams where name = $1', [teamName]);
+          if (!teamRows.length) {
+            await pool.query('insert into competitor_teams (name) values ($1)', [teamName]);
+          }
+        }
+        await pool.query(
+          'insert into premium_entries (team, amount, note) values ($1, $2, $3)',
+          [teamName, premium.amount, premium.note]
+        );
+        await replyLine(event.replyToken, `✅ บันทึกยอดเบี้ย ${premium.amount.toLocaleString()} บาท ให้ ${teamName} แล้วครับ${premium.note ? ` (${premium.note})` : ''}`);
+      } catch (err) {
+        console.error('LINE webhook premium error:', err);
+      }
+      continue;
+    }
+
     const parsed = parseScoreMessage(event.message.text);
     if (!parsed) continue;
 
