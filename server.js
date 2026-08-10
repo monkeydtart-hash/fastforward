@@ -267,6 +267,36 @@ async function replyLine(replyToken, text) {
   });
 }
 
+async function scoreSummaryText() {
+  const [membersRes, totalsRes, teamTotalRes] = await Promise.all([
+    pool.query('select * from members order by id'),
+    pool.query("select member, coalesce(sum(points), 0) as total from score_entries where scope = 'individual' group by member"),
+    pool.query("select coalesce(sum(points), 0) as total from score_entries where scope = 'team'")
+  ]);
+  const totals = {};
+  for (const r of totalsRes.rows) totals[r.member] = Number(r.total);
+  const leaderboard = membersRes.rows
+    .map(m => ({ name: m.name, points: totals[m.name] || 0 }))
+    .sort((a, b) => b.points - a.points);
+  const lines = leaderboard.map((m, i) => `${i + 1}. ${m.name} - ${m.points}`);
+  return `📊 คะแนนทีม: ${Number(teamTotalRes.rows[0].total)} คะแนน\n\nอันดับคะแนนบุคคล\n${lines.join('\n')}`;
+}
+
+async function premiumSummaryText() {
+  const [teamsRes, totalsRes] = await Promise.all([
+    pool.query('select * from competitor_teams order by id'),
+    pool.query('select team, coalesce(sum(amount), 0) as total from premium_entries group by team')
+  ]);
+  const totals = {};
+  for (const r of totalsRes.rows) totals[r.team] = Number(r.total);
+  const teamNames = [OUR_TEAM, ...teamsRes.rows.map(t => t.name)];
+  const leaderboard = teamNames
+    .map(name => ({ name, total: totals[name] || 0 }))
+    .sort((a, b) => b.total - a.total);
+  const lines = leaderboard.map((t, i) => `${i + 1}. ${t.name} - ${t.total.toLocaleString()} บาท`);
+  return `💰 ยอดเบี้ย\n${lines.join('\n')}`;
+}
+
 app.post('/webhook/line', async (req, res) => {
   if (!verifyLineSignature(req)) return res.status(403).end();
   res.status(200).end();
@@ -274,6 +304,24 @@ app.post('/webhook/line', async (req, res) => {
   const events = req.body.events || [];
   for (const event of events) {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
+
+    const text = event.message.text.trim();
+    if (text === 'คะแนน') {
+      try {
+        await replyLine(event.replyToken, await scoreSummaryText());
+      } catch (err) {
+        console.error('LINE webhook score summary error:', err);
+      }
+      continue;
+    }
+    if (text === 'ยอดเบี้ย') {
+      try {
+        await replyLine(event.replyToken, await premiumSummaryText());
+      } catch (err) {
+        console.error('LINE webhook premium summary error:', err);
+      }
+      continue;
+    }
 
     const premium = parsePremiumMessage(event.message.text);
     if (premium) {
