@@ -333,14 +333,6 @@ main > section {
 }
 .diff-summary.lead { color: var(--status-good); }
 .diff-summary.behind { color: var(--status-critical); }
-
-.diff-tag {
-  font-size: 11px;
-  font-weight: 600;
-  margin-left: 4px;
-}
-.diff-tag.lead { color: var(--status-good); }
-.diff-tag.behind { color: var(--status-critical); }
 .leaderboard-row .points {
   font-variant-numeric: tabular-nums;
   font-weight: 700;

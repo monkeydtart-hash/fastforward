@@ -271,13 +271,11 @@ function renderPremiumLeaderboard(elId, leaderboard) {
   const rows = leaderboard.map(t => {
     const ours = t.team === OUR_TEAM;
     const pct = Math.max(2, Math.round((Math.max(0, t.total) / max) * 100));
-    const diff = t.total - ourTotal;
-    const diffLabel = ours ? '' : `<span class="diff-tag ${diff > 0 ? 'behind' : 'lead'}">${diff >= 0 ? '+' : '-'}${Math.abs(diff).toLocaleString()} บาท</span>`;
     return `
       <div class="compare-bar-row">
         <div class="compare-bar-head">
           <span class="name">${escapeHtml(t.team)} <span class="tag">${ours ? '(เรา)' : '(คู่แข่ง)'}</span></span>
-          <span class="value">${t.total.toLocaleString()} บาท ${diffLabel}</span>
+          <span class="value">${t.total.toLocaleString()} บาท</span>
         </div>
         <div class="compare-bar-track"><div class="compare-bar-fill${ours ? ' ours' : ''}" style="width:${pct}%"></div></div>
       </div>
