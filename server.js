@@ -48,6 +48,20 @@ function mapPremiumEntry(r) {
   return { id: String(r.id), team: r.team, amount: Number(r.amount), note: r.note, createdAt: r.created_at.toISOString() };
 }
 
+function mapShirtOrder(r) {
+  return {
+    id: String(r.id),
+    name: r.name,
+    nickname: r.nickname,
+    branch: r.branch,
+    size: r.size,
+    leftProject: r.left_project,
+    paid: r.paid,
+    paidAt: r.paid_at ? r.paid_at.toISOString() : null,
+    note: r.note
+  };
+}
+
 function toIntOrNull(v) {
   return v === '' || v === undefined || v === null ? null : Number(v);
 }
@@ -225,6 +239,39 @@ app.delete('/api/premiums/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Shirt orders (ค่าเสื้อ) ----
+app.get('/api/shirts', async (req, res) => {
+  const { rows } = await pool.query('select * from shirt_orders order by id');
+  const orders = rows.map(mapShirtOrder);
+  const payable = orders.filter(o => !o.leftProject);
+  res.json({
+    orders,
+    paidCount: payable.filter(o => o.paid).length,
+    totalCount: payable.length
+  });
+});
+
+app.patch('/api/shirts/:id', async (req, res) => {
+  const b = req.body;
+  const fields = [];
+  const values = [];
+  let i = 1;
+  if (typeof b.paid === 'boolean') {
+    fields.push(`paid = $${i++}`, `paid_at = $${i++}`);
+    values.push(b.paid, b.paid ? new Date() : null);
+  }
+  if (typeof b.size === 'string') { fields.push(`size = $${i++}`); values.push(b.size); }
+  if (typeof b.note === 'string') { fields.push(`note = $${i++}`); values.push(b.note); }
+  if (!fields.length) return res.status(400).json({ error: 'no fields to update' });
+  values.push(req.params.id);
+  const { rows } = await pool.query(
+    `update shirt_orders set ${fields.join(', ')} where id = $${i} returning *`,
+    values
+  );
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.json(mapShirtOrder(rows[0]));
+});
+
 // ---- LINE webhook: record scores announced in the LINE group ----
 function verifyLineSignature(req) {
   const signature = req.get('x-line-signature');
@@ -297,6 +344,25 @@ async function premiumSummaryText() {
   return `💰 ยอดเบี้ย\n${lines.join('\n')}`;
 }
 
+async function shirtSummaryText() {
+  const { rows } = await pool.query(
+    "select * from shirt_orders where left_project = false order by paid asc, id"
+  );
+  const paid = rows.filter(r => r.paid);
+  const unpaid = rows.filter(r => !r.paid);
+  const unpaidNames = unpaid.map(r => r.nickname || r.name).join(', ');
+  return `👕 ค่าเสื้อ: จ่ายแล้ว ${paid.length}/${rows.length} คน\n` +
+    (unpaid.length ? `ยังไม่จ่าย: ${unpaidNames}` : 'จ่ายครบทุกคนแล้ว 🎉');
+}
+
+async function findShirtOrdersByTarget(target) {
+  const { rows } = await pool.query(
+    'select * from shirt_orders where nickname = $1 or name = $1',
+    [target]
+  );
+  return rows;
+}
+
 app.post('/webhook/line', async (req, res) => {
   if (!verifyLineSignature(req)) return res.status(403).end();
   res.status(200).end();
@@ -319,6 +385,41 @@ app.post('/webhook/line', async (req, res) => {
         await replyLine(event.replyToken, await premiumSummaryText());
       } catch (err) {
         console.error('LINE webhook premium summary error:', err);
+      }
+      continue;
+    }
+    if (text === 'เสื้อ') {
+      try {
+        await replyLine(event.replyToken, await shirtSummaryText());
+      } catch (err) {
+        console.error('LINE webhook shirt summary error:', err);
+      }
+      continue;
+    }
+
+    const shirtPaidMatch = text.match(/^(ยกเลิก)?จ่ายเสื้อ\s+(.+)$/s);
+    if (shirtPaidMatch) {
+      try {
+        const cancel = !!shirtPaidMatch[1];
+        const target = shirtPaidMatch[2].trim();
+        const matches = await findShirtOrdersByTarget(target);
+        if (!matches.length) {
+          await replyLine(event.replyToken, `⚠️ ไม่พบชื่อ "${target}" ในรายชื่อเสื้อ พิมพ์ชื่อเล่นให้ตรงกับรายชื่อนะครับ`);
+        } else if (matches.length > 1) {
+          await replyLine(event.replyToken, `⚠️ พบชื่อ "${target}" มากกว่า 1 คน กรุณาพิมพ์ชื่อ-นามสกุลเต็มแทนชื่อเล่นนะครับ`);
+        } else {
+          const order = matches[0];
+          await pool.query(
+            'update shirt_orders set paid = $1, paid_at = $2 where id = $3',
+            [!cancel, cancel ? null : new Date(), order.id]
+          );
+          const who = order.nickname || order.name;
+          await replyLine(event.replyToken, cancel
+            ? `↩️ ยกเลิกการจ่ายค่าเสื้อของ ${who} แล้วครับ`
+            : `✅ บันทึกว่า ${who} จ่ายค่าเสื้อแล้วครับ`);
+        }
+      } catch (err) {
+        console.error('LINE webhook shirt payment error:', err);
       }
       continue;
     }

@@ -21,6 +21,7 @@
   <button data-tab="cases"><span class="tab-icon">📋</span>เคสทั้งหมด</button>
   <button data-tab="scores"><span class="tab-icon">🏆</span>คะแนน</button>
   <button data-tab="premiums"><span class="tab-icon">💰</span>ยอดเบี้ย</button>
+  <button data-tab="shirts"><span class="tab-icon">👕</span>ค่าเสื้อ</button>
   <button data-tab="members"><span class="tab-icon">👥</span>สมาชิก</button>
 </nav>
 
@@ -285,6 +286,51 @@
         </div>
         <button type="submit" class="primary">เพิ่มทีม</button>
       </form>
+    </div>
+  </section>
+
+  <section id="tab-shirts" style="display:none">
+    <div class="card">
+      <h2><span class="h2-icon">👕</span>ค่าเสื้อ Smart Agent</h2>
+      <div class="stat-hero">
+        <div class="value-row">
+          <span class="value" id="shirts-paid-count">0</span>
+          <span class="target">/ <span id="shirts-total-count">0</span> คนจ่ายแล้ว</span>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:6px">รายชื่อนำเข้าจากไฟล์ "เสื้อ smart agent - final 42ตัว.pdf" — ไซส์บางแถวมาจากการอ่านไฟล์ PDF อัตโนมัติ ถ้าเห็นไม่ตรงแก้ไขได้ที่ช่องไซส์เลย</div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <h2 style="margin:0"><span class="h2-icon">📋</span>รายชื่อ &amp; สถานะจ่ายเงิน</h2>
+      </div>
+      <div class="table-scroll">
+        <table class="data" id="shirts-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ชื่อ-นามสกุล</th>
+              <th>ชื่อเล่น</th>
+              <th>ฝ่าย</th>
+              <th>ไซส์</th>
+              <th>จ่ายแล้ว</th>
+              <th>หมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody id="shirts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">🤖</span>คำสั่งในไลน์</h2>
+      <div class="hint">พิมพ์ในกลุ่มไลน์เพื่อให้น้องบอทบันทึกให้อัตโนมัติ</div>
+      <div class="hint" style="margin-top:8px">
+        <b>เสื้อ</b> — ดูสรุปว่าใครจ่ายแล้ว/ยังไม่จ่ายบ้าง<br>
+        <b>จ่ายเสื้อ ชื่อเล่น</b> — บันทึกว่าคนนั้นจ่ายค่าเสื้อแล้ว เช่น "จ่ายเสื้อ หยก"<br>
+        <b>ยกเลิกจ่ายเสื้อ ชื่อเล่น</b> — ยกเลิกการบันทึกจ่ายเงิน (แก้ไขกรณีพิมพ์ผิด)
+      </div>
     </div>
   </section>
 

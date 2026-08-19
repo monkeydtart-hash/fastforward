@@ -41,6 +41,7 @@ function loadTab(tab) {
   if (tab === 'cases') loadCases();
   if (tab === 'scores') loadScores();
   if (tab === 'premiums') loadPremiums();
+  if (tab === 'shirts') loadShirts();
   if (tab === 'members') loadMembers();
 }
 
@@ -360,6 +361,46 @@ document.getElementById('form-competitor-team').addEventListener('submit', async
   e.target.reset();
   loadPremiums();
 });
+
+// ---------- Shirts (ค่าเสื้อ) ----------
+async function loadShirts() {
+  const data = await api('/shirts');
+  document.getElementById('shirts-paid-count').textContent = data.paidCount;
+  document.getElementById('shirts-total-count').textContent = data.totalCount;
+
+  const tbody = document.getElementById('shirts-tbody');
+  tbody.innerHTML = data.orders.map((o, i) => `
+    <tr${o.leftProject ? ' style="opacity:0.5"' : ''}>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(o.name)}${o.leftProject ? ' <span class="hint">(ออกจากโครงการ)</span>' : ''}</td>
+      <td>${escapeHtml(o.nickname || '-')}</td>
+      <td>${escapeHtml(o.branch || '-')}</td>
+      <td><input type="text" class="shirt-size-input" data-shirt-id="${o.id}" value="${escapeAttr(o.size)}" ${o.leftProject ? 'disabled' : ''} style="width:70px"></td>
+      <td><input type="checkbox" class="shirt-paid-input" data-shirt-id="${o.id}" ${o.paid ? 'checked' : ''} ${o.leftProject ? 'disabled' : ''}></td>
+      <td><input type="text" class="shirt-note-input" data-shirt-id="${o.id}" value="${escapeAttr(o.note)}" placeholder="หมายเหตุ" style="width:120px"></td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.shirt-paid-input').forEach(el => {
+    el.addEventListener('change', async () => {
+      await api('/shirts/' + el.dataset.shirtId, { method: 'PATCH', body: JSON.stringify({ paid: el.checked }) });
+      toast(el.checked ? 'บันทึกว่าจ่ายแล้ว' : 'ยกเลิกการจ่ายแล้ว');
+      loadShirts();
+    });
+  });
+  tbody.querySelectorAll('.shirt-size-input').forEach(el => {
+    el.addEventListener('change', async () => {
+      await api('/shirts/' + el.dataset.shirtId, { method: 'PATCH', body: JSON.stringify({ size: el.value }) });
+      toast('บันทึกไซส์แล้ว');
+    });
+  });
+  tbody.querySelectorAll('.shirt-note-input').forEach(el => {
+    el.addEventListener('change', async () => {
+      await api('/shirts/' + el.dataset.shirtId, { method: 'PATCH', body: JSON.stringify({ note: el.value }) });
+      toast('บันทึกหมายเหตุแล้ว');
+    });
+  });
+}
 
 // ---------- Members ----------
 async function loadMembers() {
