@@ -239,7 +239,7 @@ app.delete('/api/premiums/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- Shirt orders (ค่าเสื้อ) ----
+// ---- Shirt orders roster, used to track ค่างานเลี้ยง (party fee) payments ----
 app.get('/api/shirts', async (req, res) => {
   const { rows } = await pool.query('select * from shirt_orders order by id');
   const orders = rows.map(mapShirtOrder);
@@ -351,7 +351,7 @@ async function shirtSummaryText() {
   const paid = rows.filter(r => r.paid);
   const unpaid = rows.filter(r => !r.paid);
   const unpaidNames = unpaid.map(r => r.nickname || r.name).join(', ');
-  return `👕 ค่าเสื้อ: จ่ายแล้ว ${paid.length}/${rows.length} คน\n` +
+  return `🎉 ค่างานเลี้ยง: จ่ายแล้ว ${paid.length}/${rows.length} คน\n` +
     (unpaid.length ? `ยังไม่จ่าย: ${unpaidNames}` : 'จ่ายครบทุกคนแล้ว 🎉');
 }
 
@@ -388,23 +388,23 @@ app.post('/webhook/line', async (req, res) => {
       }
       continue;
     }
-    if (text === 'เสื้อ') {
+    if (text === 'งานเลี้ยง') {
       try {
         await replyLine(event.replyToken, await shirtSummaryText());
       } catch (err) {
-        console.error('LINE webhook shirt summary error:', err);
+        console.error('LINE webhook party fee summary error:', err);
       }
       continue;
     }
 
-    const shirtPaidMatch = text.match(/^(ยกเลิก)?จ่ายเสื้อ\s+(.+)$/s);
+    const shirtPaidMatch = text.match(/^(ยกเลิก)?จ่ายงานเลี้ยง\s+(.+)$/s);
     if (shirtPaidMatch) {
       try {
         const cancel = !!shirtPaidMatch[1];
         const target = shirtPaidMatch[2].trim();
         const matches = await findShirtOrdersByTarget(target);
         if (!matches.length) {
-          await replyLine(event.replyToken, `⚠️ ไม่พบชื่อ "${target}" ในรายชื่อเสื้อ พิมพ์ชื่อเล่นให้ตรงกับรายชื่อนะครับ`);
+          await replyLine(event.replyToken, `⚠️ ไม่พบชื่อ "${target}" ในรายชื่อ พิมพ์ชื่อเล่นให้ตรงกับรายชื่อนะครับ`);
         } else if (matches.length > 1) {
           await replyLine(event.replyToken, `⚠️ พบชื่อ "${target}" มากกว่า 1 คน กรุณาพิมพ์ชื่อ-นามสกุลเต็มแทนชื่อเล่นนะครับ`);
         } else {
@@ -415,11 +415,11 @@ app.post('/webhook/line', async (req, res) => {
           );
           const who = order.nickname || order.name;
           await replyLine(event.replyToken, cancel
-            ? `↩️ ยกเลิกการจ่ายค่าเสื้อของ ${who} แล้วครับ`
-            : `✅ บันทึกว่า ${who} จ่ายค่าเสื้อแล้วครับ`);
+            ? `↩️ ยกเลิกการจ่ายค่างานเลี้ยงของ ${who} แล้วครับ`
+            : `✅ บันทึกว่า ${who} จ่ายค่างานเลี้ยงแล้วครับ`);
         }
       } catch (err) {
-        console.error('LINE webhook shirt payment error:', err);
+        console.error('LINE webhook party fee payment error:', err);
       }
       continue;
     }

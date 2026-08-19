@@ -375,7 +375,6 @@ async function loadShirts() {
       <td>${escapeHtml(o.name)}${o.leftProject ? ' <span class="hint">(ออกจากโครงการ)</span>' : ''}</td>
       <td>${escapeHtml(o.nickname || '-')}</td>
       <td>${escapeHtml(o.branch || '-')}</td>
-      <td><input type="text" class="shirt-size-input" data-shirt-id="${o.id}" value="${escapeAttr(o.size)}" ${o.leftProject ? 'disabled' : ''} style="width:70px"></td>
       <td><input type="checkbox" class="shirt-paid-input" data-shirt-id="${o.id}" ${o.paid ? 'checked' : ''} ${o.leftProject ? 'disabled' : ''}></td>
       <td><input type="text" class="shirt-note-input" data-shirt-id="${o.id}" value="${escapeAttr(o.note)}" placeholder="หมายเหตุ" style="width:120px"></td>
     </tr>
@@ -386,12 +385,6 @@ async function loadShirts() {
       await api('/shirts/' + el.dataset.shirtId, { method: 'PATCH', body: JSON.stringify({ paid: el.checked }) });
       toast(el.checked ? 'บันทึกว่าจ่ายแล้ว' : 'ยกเลิกการจ่ายแล้ว');
       loadShirts();
-    });
-  });
-  tbody.querySelectorAll('.shirt-size-input').forEach(el => {
-    el.addEventListener('change', async () => {
-      await api('/shirts/' + el.dataset.shirtId, { method: 'PATCH', body: JSON.stringify({ size: el.value }) });
-      toast('บันทึกไซส์แล้ว');
     });
   });
   tbody.querySelectorAll('.shirt-note-input').forEach(el => {
