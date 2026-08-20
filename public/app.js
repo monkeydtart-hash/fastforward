@@ -377,6 +377,7 @@ async function loadShirts() {
       <td>${escapeHtml(o.branch || '-')}</td>
       <td><input type="checkbox" class="shirt-paid-input" data-shirt-id="${o.id}" ${o.paid ? 'checked' : ''} ${o.leftProject ? 'disabled' : ''}></td>
       <td><input type="text" class="shirt-note-input" data-shirt-id="${o.id}" value="${escapeAttr(o.note)}" placeholder="หมายเหตุ" style="width:120px"></td>
+      <td><button class="ghost" data-del-shirt="${o.id}">ลบ</button></td>
     </tr>
   `).join('');
 
@@ -393,7 +394,27 @@ async function loadShirts() {
       toast('บันทึกหมายเหตุแล้ว');
     });
   });
+  tbody.querySelectorAll('[data-del-shirt]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรายชื่อนี้?')) return;
+      await api('/shirts/' + btn.dataset.delShirt, { method: 'DELETE' });
+      loadShirts();
+    });
+  });
 }
+
+document.getElementById('form-shirt').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    name: document.getElementById('sh-name').value,
+    nickname: document.getElementById('sh-nickname').value,
+    branch: document.getElementById('sh-branch').value
+  };
+  await api('/shirts', { method: 'POST', body: JSON.stringify(payload) });
+  toast('เพิ่มรายชื่อแล้ว');
+  e.target.reset();
+  loadShirts();
+});
 
 // ---------- Members ----------
 async function loadMembers() {

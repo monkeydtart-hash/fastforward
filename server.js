@@ -251,6 +251,21 @@ app.get('/api/shirts', async (req, res) => {
   });
 });
 
+app.post('/api/shirts', async (req, res) => {
+  const { name, nickname, branch, size } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const { rows } = await pool.query(
+    'insert into shirt_orders (name, nickname, branch, size) values ($1, $2, $3, $4) returning *',
+    [name, nickname || '', branch || '', size || '']
+  );
+  res.json(mapShirtOrder(rows[0]));
+});
+
+app.delete('/api/shirts/:id', async (req, res) => {
+  await pool.query('delete from shirt_orders where id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 app.patch('/api/shirts/:id', async (req, res) => {
   const b = req.body;
   const fields = [];
