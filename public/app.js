@@ -422,7 +422,7 @@ function assignGroupSlots(groups) {
 async function loadSaAsoke() {
   saAsokeEditingId = null;
   const data = await api('/sa-asoke');
-  saAsokeCache = data.entries;
+  saAsokeCache = data.entries.sort((a, b) => a.name.localeCompare(b.name, 'th'));
   renderSaAsoke(data.total);
 }
 
