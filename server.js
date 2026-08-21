@@ -62,6 +62,10 @@ function mapShirtOrder(r) {
   };
 }
 
+function mapSaAsokePremium(r) {
+  return { id: String(r.id), name: r.name, group: r.group_no, premium: Number(r.premium), createdAt: r.created_at.toISOString() };
+}
+
 function toIntOrNull(v) {
   return v === '' || v === undefined || v === null ? null : Number(v);
 }
@@ -285,6 +289,44 @@ app.patch('/api/shirts/:id', async (req, res) => {
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
   res.json(mapShirtOrder(rows[0]));
+});
+
+// ---- SA Asoke premium summary ----
+app.get('/api/sa-asoke', async (req, res) => {
+  const { rows } = await pool.query('select * from sa_asoke_premiums order by id');
+  const entries = rows.map(mapSaAsokePremium);
+  const total = entries.reduce((sum, e) => sum + e.premium, 0);
+  res.json({ entries, total });
+});
+
+app.post('/api/sa-asoke', async (req, res) => {
+  const { name, group, premium } = req.body;
+  if (!name || typeof premium !== 'number') {
+    return res.status(400).json({ error: 'name and numeric premium required' });
+  }
+  const { rows } = await pool.query(
+    'insert into sa_asoke_premiums (name, group_no, premium) values ($1, $2, $3) returning *',
+    [name, group || '', premium]
+  );
+  res.json(mapSaAsokePremium(rows[0]));
+});
+
+app.put('/api/sa-asoke/:id', async (req, res) => {
+  const { name, group, premium } = req.body;
+  if (!name || typeof premium !== 'number') {
+    return res.status(400).json({ error: 'name and numeric premium required' });
+  }
+  const { rows } = await pool.query(
+    'update sa_asoke_premiums set name = $1, group_no = $2, premium = $3 where id = $4 returning *',
+    [name, group || '', premium, req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.json(mapSaAsokePremium(rows[0]));
+});
+
+app.delete('/api/sa-asoke/:id', async (req, res) => {
+  await pool.query('delete from sa_asoke_premiums where id = $1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 // ---- LINE webhook: record scores announced in the LINE group ----

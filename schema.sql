@@ -70,6 +70,40 @@ create table if not exists shirt_orders (
   note text not null default ''
 );
 
+create table if not exists sa_asoke_premiums (
+  id serial primary key,
+  name text not null,
+  group_no text not null default '',
+  premium numeric not null default 0,
+  created_at timestamptz not null default now()
+);
+
+insert into sa_asoke_premiums (name, group_no, premium)
+select v.name, v.group_no, v.premium
+from (values
+  ('วิยดา สีกา', '6', 3982.00),
+  ('กนกศักดิ์ มหานุชิต', '1', 20050.00),
+  ('ปณิธาน เพชรรัตน์', '5', 26019.00),
+  ('เฌอพลอย ดีมาก', '6', 2050.00),
+  ('จุฬาภรณ์ พงษ์พฤกษ์', '2', 2800.00),
+  ('พิชชา อินทกุล', '6', 5700.00),
+  ('จุฬาภรณ์ พงษ์พฤกษ์', '2', 49900.00),
+  ('บุญศักดิ์ บุญสังข์', '2', 1200.00),
+  ('จาตุรนต์ สำเร็จกิจ', '6', 5500.00),
+  ('จาตุรนต์ สำเร็จกิจ', '6', 3760.00),
+  ('พิชชา อินทกุล', '6', 23190.00),
+  ('อุกฤษฎ์ ยิ้มย่อง', '6', 28450.00),
+  ('วริษฐ์สิริ จินตนาปิทีป', '2', 27030.00),
+  ('ณัชชา แก้วอินทร์', '3', 13531.00),
+  ('นพวรรณ สวนป่า', '2', 17237.00),
+  ('วิยดา สีกา', '6', 3490.00),
+  ('วรรทนี บัวตุ่ม', '2', 3080.00),
+  ('ภัทรา วณิชชานนท์', '4', 460000.00),
+  ('พิชชา อินทกุล', '6', 26500.00),
+  ('ราชัย วงเวียน', '1', 2964.00)
+) as v(name, group_no, premium)
+where not exists (select 1 from sa_asoke_premiums);
+
 insert into shirt_orders (name, nickname, branch, size, left_project)
 select v.name, v.nickname, v.branch, v.size, v.left_project
 from (values
