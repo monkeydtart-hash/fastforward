@@ -751,6 +751,26 @@ table.data tbody tr:last-child td {
 .dark-net-label { font-size: 12px; opacity: 0.8; }
 .dark-net-value { font-size: 26px; font-weight: 700; }
 
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--series-blue-100);
+  color: var(--series-blue);
+}
+.badge.badge-muted { background: var(--surface-2); color: var(--text-secondary); }
+.badge.badge-good { background: color-mix(in srgb, var(--status-good) 15%, transparent); color: var(--status-good); }
+
 .month-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

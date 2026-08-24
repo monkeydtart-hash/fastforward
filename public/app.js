@@ -286,13 +286,112 @@ function formatMoney(n) {
 }
 
 let commissionWired = false;
+let cmSelectedPlan = null;
+
+function fillPlanSelect() {
+  const select = document.getElementById('cm-plan');
+  const categories = [...new Set(COMMISSION_RATE_TABLE.map(p => p.category))];
+  let html = '<option value="">— กรอกอัตราคอมมิชชั่นเอง —</option>';
+  categories.forEach(cat => {
+    html += `<optgroup label="${escapeAttr(cat)}">`;
+    html += COMMISSION_RATE_TABLE
+      .map((p, idx) => ({ p, idx }))
+      .filter(({ p }) => p.category === cat)
+      .map(({ p, idx }) => `<option value="${idx}">${escapeHtml(p.code)} — ${escapeHtml(p.name)}</option>`)
+      .join('');
+    html += '</optgroup>';
+  });
+  select.innerHTML = html;
+}
+
 function loadCommission() {
-  if (commissionWired) { calcCommission(); return; }
+  if (commissionWired) return;
   commissionWired = true;
+  fillPlanSelect();
+  document.getElementById('cm-period').textContent = COMMISSION_RATE_PERIOD;
+
+  document.getElementById('cm-plan').addEventListener('change', onCommissionPlanChange);
+  document.getElementById('cm-condition').addEventListener('change', updateCommissionFromPlan);
+  document.getElementById('cm-year').addEventListener('change', updateCommissionFromPlan);
   ['cm-premium', 'cm-rate', 'cm-tax'].forEach(id => {
     document.getElementById(id).addEventListener('input', calcCommission);
   });
   document.getElementById('cm-tax').addEventListener('change', calcCommission);
+  calcCommission();
+}
+
+function onCommissionPlanChange() {
+  const idx = document.getElementById('cm-plan').value;
+  const detailRow = document.getElementById('cm-plan-detail-row');
+  const conditionField = document.getElementById('cm-condition-field');
+  const badges = document.getElementById('cm-badges');
+  const bonusHint = document.getElementById('cm-bonus-hint');
+  const rateInput = document.getElementById('cm-rate');
+  const manualHint = document.getElementById('cm-manual-hint');
+
+  if (idx === '') {
+    cmSelectedPlan = null;
+    detailRow.style.display = 'none';
+    badges.style.display = 'none';
+    bonusHint.style.display = 'none';
+    rateInput.readOnly = false;
+    manualHint.style.display = '';
+    calcCommission();
+    return;
+  }
+
+  cmSelectedPlan = COMMISSION_RATE_TABLE[Number(idx)];
+  detailRow.style.display = '';
+  rateInput.readOnly = true;
+  manualHint.style.display = 'none';
+
+  const conditionSelect = document.getElementById('cm-condition');
+  if (cmSelectedPlan.tiers.length > 1) {
+    conditionField.style.display = '';
+    conditionSelect.innerHTML = cmSelectedPlan.tiers
+      .map((t, i) => `<option value="${i}">${escapeHtml(t.condition || t.ageRange)}</option>`)
+      .join('');
+  } else {
+    conditionField.style.display = 'none';
+    conditionSelect.innerHTML = '<option value="0"></option>';
+  }
+
+  updateCommissionFromPlan();
+}
+
+function updateCommissionFromPlan() {
+  if (!cmSelectedPlan) return;
+  const tierIdx = Number(document.getElementById('cm-condition').value) || 0;
+  const tier = cmSelectedPlan.tiers[tierIdx];
+  const year = document.getElementById('cm-year').value;
+  const rate = tier[year];
+
+  document.getElementById('cm-rate').value = rate;
+
+  let badgeHtml = `<span class="badge">พิกัดอายุรับประกัน: ${escapeHtml(tier.ageRange)}</span>`;
+  if (tier.participation != null) {
+    badgeHtml += `<span class="badge badge-good">นับผลงาน: ${tier.participation}%</span>`;
+  }
+  badgeHtml += `<span class="badge">คอมหลัก: ${rate}%</span>`;
+  let hasBonus = false;
+  if (tier.comPlus != null) {
+    const note = tier.comPlusNote ? ` (${escapeHtml(tier.comPlusNote)})` : '';
+    badgeHtml += `<span class="badge badge-muted">Com+: ${tier.comPlus}%${note}</span>`;
+    hasBonus = true;
+  }
+  if (tier.laBonus != null) {
+    badgeHtml += `<span class="badge badge-muted">LA Bonus: ${tier.laBonus}%</span>`;
+    hasBonus = true;
+  }
+  if (tier.note) {
+    badgeHtml += `<span class="badge badge-muted">${escapeHtml(tier.note)}</span>`;
+  }
+
+  const badges = document.getElementById('cm-badges');
+  badges.innerHTML = badgeHtml;
+  badges.style.display = '';
+  document.getElementById('cm-bonus-hint').style.display = hasBonus ? '' : 'none';
+
   calcCommission();
 }
 
