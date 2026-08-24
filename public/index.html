@@ -233,28 +233,27 @@
       <div class="card">
         <h2><span class="h2-icon">📄</span>ข้อมูลกรมธรรม์</h2>
         <div class="hint" id="cm-period" style="margin-bottom:10px"></div>
+
+        <div class="field">
+          <label>ปีกรมธรรม์</label>
+          <select id="cm-year">
+            <option value="y1">ปีที่ 1</option>
+            <option value="y2">ปีที่ 2</option>
+            <option value="y3">ปีที่ 3</option>
+            <option value="y4">ปีที่ 4 ขึ้นไป</option>
+          </select>
+        </div>
+
         <div class="field">
           <label>แบบประกัน (สัญญาหลัก)</label>
           <select id="cm-plan"></select>
         </div>
-        <div class="row2" id="cm-plan-detail-row" style="display:none">
-          <div class="field" id="cm-condition-field" style="display:none">
-            <label>เงื่อนไข</label>
-            <select id="cm-condition"></select>
-          </div>
-          <div class="field">
-            <label>ปีกรมธรรม์</label>
-            <select id="cm-year">
-              <option value="y1">ปีที่ 1</option>
-              <option value="y2">ปีที่ 2</option>
-              <option value="y3">ปีที่ 3</option>
-              <option value="y4">ปีที่ 4 ขึ้นไป</option>
-            </select>
-          </div>
+        <div class="field" id="cm-condition-field" style="display:none">
+          <label>เงื่อนไข</label>
+          <select id="cm-condition"></select>
         </div>
 
         <div class="badge-row" id="cm-badges" style="display:none"></div>
-        <div class="hint" id="cm-bonus-hint" style="display:none">LA Bonus เป็นอัตราเพิ่มเติมที่มีเงื่อนไขบริษัทกำกับอยู่ ไม่ได้รวมอยู่ในยอดคำนวณด้านขวาให้อัตโนมัติ</div>
 
         <div class="row2" style="margin-top:14px">
           <div class="field">
@@ -266,7 +265,16 @@
             <input type="number" id="cm-rate" min="0" max="100" step="0.01" value="0">
           </div>
         </div>
-        <div class="field">
+        <div class="hint" id="cm-manual-hint">เลือก "กรอกอัตราคอมมิชชั่นเอง" ถ้าไม่พบแบบประกันในลิสต์ แล้วกรอกอัตราจากเอกสารบริษัทเอง</div>
+
+        <div class="section-header" style="margin-top:18px">
+          <h2 style="margin:0"><span class="h2-icon">➕</span>สัญญาเพิ่มเติม (Riders)</h2>
+          <button type="button" class="ghost" id="cm-add-rider">➕ เพิ่มสัญญา</button>
+        </div>
+        <div id="cm-riders-list"></div>
+        <div class="hint" id="cm-riders-empty">ยังไม่มีสัญญาเพิ่มเติม</div>
+
+        <div class="field" style="margin-top:18px">
           <label>หักภาษี ณ ที่จ่าย</label>
           <select id="cm-tax">
             <option value="5">5%</option>
@@ -278,12 +286,13 @@
             <option value="35">35%</option>
           </select>
         </div>
-        <div class="hint" id="cm-manual-hint">เลือก "กรอกอัตราคอมมิชชั่นเอง" ถ้าไม่พบแบบประกันในลิสต์ แล้วกรอกอัตราจากเอกสารบริษัทเอง</div>
+        <div class="hint" id="cm-bonus-hint" style="display:none">LA Bonus เป็นอัตราเพิ่มเติมที่มีเงื่อนไขบริษัทกำกับอยู่ ไม่ได้รวมอยู่ในยอดคำนวณด้านขวาให้อัตโนมัติ</div>
       </div>
 
       <div class="hero-panel-dark">
         <h3>สรุปผลประโยชน์</h3>
-        <div class="dark-row"><span>คอมมิชชั่น</span><span id="cm-commission">฿0</span></div>
+        <div id="cm-breakdown"></div>
+        <div class="dark-row"><span>คอมมิชชั่นรวม</span><span id="cm-commission">฿0</span></div>
         <div class="dark-row" id="cm-complus-row" style="display:none"><span>Com+</span><span id="cm-complus">฿0</span></div>
         <div class="dark-row"><span>รวมรายได้ก่อนหักภาษี</span><span id="cm-gross">฿0</span></div>
         <div class="dark-row"><span>หักภาษี ณ ที่จ่าย</span><span id="cm-tax-amount">-฿0</span></div>

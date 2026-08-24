@@ -285,57 +285,90 @@ function formatMoney(n) {
   return '฿' + Math.round(n).toLocaleString();
 }
 
+function buildGroupedOptions(kind, selectedPlan) {
+  const entries = COMMISSION_RATE_TABLE
+    .map((p, idx) => ({ p, idx }))
+    .filter(({ p }) => p.kind === kind);
+  const categories = [...new Set(entries.map(({ p }) => p.category))];
+  return categories.map(cat => {
+    const opts = entries
+      .filter(({ p }) => p.category === cat)
+      .map(({ p, idx }) => `<option value="${idx}"${selectedPlan === p ? ' selected' : ''}>${escapeHtml(p.code)} — ${escapeHtml(p.name)}</option>`)
+      .join('');
+    return `<optgroup label="${escapeAttr(cat)}">${opts}</optgroup>`;
+  }).join('');
+}
+
+function tierBadgesHtml(tier, rate) {
+  let html = `<span class="badge">พิกัดอายุรับประกัน: ${escapeHtml(tier.ageRange)}</span>`;
+  if (tier.participation != null) html += `<span class="badge badge-good">นับผลงาน: ${tier.participation}%</span>`;
+  html += `<span class="badge">คอมหลัก: ${rate}%</span>`;
+  if (tier.comPlus != null) {
+    const note = tier.comPlusNote ? ` (${escapeHtml(tier.comPlusNote)})` : '';
+    html += `<span class="badge badge-muted">Com+: ${tier.comPlus}%${note}</span>`;
+  }
+  if (tier.laBonus != null) html += `<span class="badge badge-muted">LA Bonus: ${tier.laBonus}%</span>`;
+  if (tier.note) html += `<span class="badge badge-muted">${escapeHtml(tier.note)}</span>`;
+  return html;
+}
+
+function getPolicyYear() {
+  return document.getElementById('cm-year').value;
+}
+
 let commissionWired = false;
 let cmSelectedPlan = null;
+let cmMainTierIdx = 0;
 let cmCurrentComPlus = null;
+let cmCurrentLaBonus = null;
+let cmRiders = [];
+let cmRiderSeq = 0;
 
 function fillPlanSelect() {
-  const select = document.getElementById('cm-plan');
-  const categories = [...new Set(COMMISSION_RATE_TABLE.map(p => p.category))];
-  let html = '<option value="">— กรอกอัตราคอมมิชชั่นเอง —</option>';
-  categories.forEach(cat => {
-    html += `<optgroup label="${escapeAttr(cat)}">`;
-    html += COMMISSION_RATE_TABLE
-      .map((p, idx) => ({ p, idx }))
-      .filter(({ p }) => p.category === cat)
-      .map(({ p, idx }) => `<option value="${idx}">${escapeHtml(p.code)} — ${escapeHtml(p.name)}</option>`)
-      .join('');
-    html += '</optgroup>';
-  });
-  select.innerHTML = html;
+  document.getElementById('cm-plan').innerHTML =
+    '<option value="">— กรอกอัตราคอมมิชชั่นเอง —</option>' + buildGroupedOptions('main', null);
 }
 
 function loadCommission() {
   if (commissionWired) return;
   commissionWired = true;
-  fillPlanSelect();
   document.getElementById('cm-period').textContent = COMMISSION_RATE_PERIOD;
+  fillPlanSelect();
 
   document.getElementById('cm-plan').addEventListener('change', onCommissionPlanChange);
-  document.getElementById('cm-condition').addEventListener('change', updateCommissionFromPlan);
-  document.getElementById('cm-year').addEventListener('change', updateCommissionFromPlan);
-  ['cm-premium', 'cm-rate', 'cm-tax'].forEach(id => {
+  document.getElementById('cm-condition').addEventListener('change', () => {
+    cmMainTierIdx = Number(document.getElementById('cm-condition').value) || 0;
+    updateMainFromPlan();
+  });
+  document.getElementById('cm-year').addEventListener('change', () => {
+    if (cmSelectedPlan) updateMainFromPlan();
+    cmRiders.forEach(r => { if (r.plan) applyRiderTier(r); });
+    renderRiderRows();
+    calcCommission();
+  });
+  ['cm-premium', 'cm-rate'].forEach(id => {
     document.getElementById(id).addEventListener('input', calcCommission);
   });
   document.getElementById('cm-tax').addEventListener('change', calcCommission);
+  document.getElementById('cm-add-rider').addEventListener('click', addRiderRow);
+
+  renderRiderRows();
   calcCommission();
 }
 
 function onCommissionPlanChange() {
   const idx = document.getElementById('cm-plan').value;
-  const detailRow = document.getElementById('cm-plan-detail-row');
   const conditionField = document.getElementById('cm-condition-field');
   const badges = document.getElementById('cm-badges');
-  const bonusHint = document.getElementById('cm-bonus-hint');
   const rateInput = document.getElementById('cm-rate');
   const manualHint = document.getElementById('cm-manual-hint');
 
   if (idx === '') {
     cmSelectedPlan = null;
     cmCurrentComPlus = null;
-    detailRow.style.display = 'none';
+    cmCurrentLaBonus = null;
+    conditionField.style.display = 'none';
     badges.style.display = 'none';
-    bonusHint.style.display = 'none';
     rateInput.readOnly = false;
     manualHint.style.display = '';
     calcCommission();
@@ -343,7 +376,7 @@ function onCommissionPlanChange() {
   }
 
   cmSelectedPlan = COMMISSION_RATE_TABLE[Number(idx)];
-  detailRow.style.display = '';
+  cmMainTierIdx = 0;
   rateInput.readOnly = true;
   manualHint.style.display = 'none';
 
@@ -358,64 +391,177 @@ function onCommissionPlanChange() {
     conditionSelect.innerHTML = '<option value="0"></option>';
   }
 
-  updateCommissionFromPlan();
+  updateMainFromPlan();
 }
 
-function updateCommissionFromPlan() {
+function updateMainFromPlan() {
   if (!cmSelectedPlan) return;
-  const tierIdx = Number(document.getElementById('cm-condition').value) || 0;
-  const tier = cmSelectedPlan.tiers[tierIdx];
-  const year = document.getElementById('cm-year').value;
-  const rate = tier[year];
+  const tier = cmSelectedPlan.tiers[cmMainTierIdx];
+  const rate = tier[getPolicyYear()];
 
   document.getElementById('cm-rate').value = rate;
   cmCurrentComPlus = tier.comPlus;
-
-  let badgeHtml = `<span class="badge">พิกัดอายุรับประกัน: ${escapeHtml(tier.ageRange)}</span>`;
-  if (tier.participation != null) {
-    badgeHtml += `<span class="badge badge-good">นับผลงาน: ${tier.participation}%</span>`;
-  }
-  badgeHtml += `<span class="badge">คอมหลัก: ${rate}%</span>`;
-  let hasLaBonus = false;
-  if (tier.comPlus != null) {
-    const note = tier.comPlusNote ? ` (${escapeHtml(tier.comPlusNote)})` : '';
-    badgeHtml += `<span class="badge badge-muted">Com+: ${tier.comPlus}%${note}</span>`;
-  }
-  if (tier.laBonus != null) {
-    badgeHtml += `<span class="badge badge-muted">LA Bonus: ${tier.laBonus}%</span>`;
-    hasLaBonus = true;
-  }
-  if (tier.note) {
-    badgeHtml += `<span class="badge badge-muted">${escapeHtml(tier.note)}</span>`;
-  }
+  cmCurrentLaBonus = tier.laBonus;
 
   const badges = document.getElementById('cm-badges');
-  badges.innerHTML = badgeHtml;
+  badges.innerHTML = tierBadgesHtml(tier, rate);
   badges.style.display = '';
-  document.getElementById('cm-bonus-hint').style.display = hasLaBonus ? '' : 'none';
 
   calcCommission();
 }
 
+// ---- Riders ----
+function addRiderRow() {
+  cmRiderSeq++;
+  cmRiders.push({ id: cmRiderSeq, plan: null, tier: null, tierIdx: 0, premium: 0, rate: 0, comPlus: null, laBonus: null });
+  renderRiderRows();
+  calcCommission();
+}
+
+function removeRiderRow(id) {
+  cmRiders = cmRiders.filter(r => r.id !== id);
+  renderRiderRows();
+  calcCommission();
+}
+
+function applyRiderTier(rider) {
+  const tier = rider.plan.tiers[rider.tierIdx];
+  rider.tier = tier;
+  rider.rate = tier[getPolicyYear()];
+  rider.comPlus = tier.comPlus;
+  rider.laBonus = tier.laBonus;
+}
+
+function riderRowHtml(rider) {
+  const planOptions = '<option value="">— กรอกอัตราคอมมิชชั่นเอง —</option>' + buildGroupedOptions('rider', rider.plan);
+  const hasTiers = rider.plan && rider.plan.tiers.length > 1;
+  const conditionOptions = rider.plan
+    ? rider.plan.tiers.map((t, i) => `<option value="${i}"${i === rider.tierIdx ? ' selected' : ''}>${escapeHtml(t.condition || t.ageRange)}</option>`).join('')
+    : '';
+  const badges = rider.plan ? tierBadgesHtml(rider.tier, rider.rate) : '';
+
+  return `
+    <div class="rider-row" data-rider-id="${rider.id}">
+      <div class="rider-row-head">
+        <span class="rider-row-title">สัญญาเพิ่มเติม</span>
+        <button type="button" class="ghost" data-remove-rider="${rider.id}">ลบ</button>
+      </div>
+      <div class="field">
+        <label>แบบสัญญาเพิ่มเติม</label>
+        <select class="rider-plan-select" data-rider-id="${rider.id}">${planOptions}</select>
+      </div>
+      <div class="field" style="display:${hasTiers ? '' : 'none'}">
+        <label>เงื่อนไข</label>
+        <select class="rider-condition-select" data-rider-id="${rider.id}">${conditionOptions}</select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>เบี้ยสัญญาเพิ่มเติม (บาท)</label>
+          <input type="number" class="rider-premium-input" data-rider-id="${rider.id}" min="0" value="${rider.premium}">
+        </div>
+        <div class="field">
+          <label>อัตราคอมมิชชั่น (%)</label>
+          <input type="number" class="rider-rate-input" data-rider-id="${rider.id}" min="0" max="100" step="0.01" value="${rider.rate}"${rider.plan ? ' readonly' : ''}>
+        </div>
+      </div>
+      <div class="badge-row" style="display:${rider.plan ? '' : 'none'}">${badges}</div>
+    </div>
+  `;
+}
+
+function renderRiderRows() {
+  const list = document.getElementById('cm-riders-list');
+  const empty = document.getElementById('cm-riders-empty');
+  empty.style.display = cmRiders.length ? 'none' : '';
+  list.innerHTML = cmRiders.map(riderRowHtml).join('');
+
+  list.querySelectorAll('.rider-plan-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const rider = cmRiders.find(r => r.id === Number(sel.dataset.riderId));
+      if (sel.value === '') {
+        rider.plan = null;
+        rider.tier = null;
+        rider.tierIdx = 0;
+        rider.comPlus = null;
+        rider.laBonus = null;
+      } else {
+        rider.plan = COMMISSION_RATE_TABLE[Number(sel.value)];
+        rider.tierIdx = 0;
+        applyRiderTier(rider);
+      }
+      renderRiderRows();
+      calcCommission();
+    });
+  });
+  list.querySelectorAll('.rider-condition-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const rider = cmRiders.find(r => r.id === Number(sel.dataset.riderId));
+      rider.tierIdx = Number(sel.value) || 0;
+      applyRiderTier(rider);
+      renderRiderRows();
+      calcCommission();
+    });
+  });
+  list.querySelectorAll('.rider-premium-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const rider = cmRiders.find(r => r.id === Number(inp.dataset.riderId));
+      rider.premium = Number(inp.value) || 0;
+      calcCommission();
+    });
+  });
+  list.querySelectorAll('.rider-rate-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const rider = cmRiders.find(r => r.id === Number(inp.dataset.riderId));
+      rider.rate = Number(inp.value) || 0;
+      calcCommission();
+    });
+  });
+  list.querySelectorAll('[data-remove-rider]').forEach(btn => {
+    btn.addEventListener('click', () => removeRiderRow(Number(btn.dataset.removeRider)));
+  });
+}
+
 function calcCommission() {
-  const premium = Number(document.getElementById('cm-premium').value) || 0;
-  const rate = Number(document.getElementById('cm-rate').value) || 0;
+  const mainPremium = Number(document.getElementById('cm-premium').value) || 0;
+  const mainRate = Number(document.getElementById('cm-rate').value) || 0;
   const taxPct = Number(document.getElementById('cm-tax').value) || 0;
 
-  const commission = premium * (rate / 100);
-  const comPlusAmount = cmCurrentComPlus != null ? premium * (cmCurrentComPlus / 100) : 0;
-  const gross = commission + comPlusAmount;
+  const mainCommission = mainPremium * (mainRate / 100);
+  const mainComPlus = cmCurrentComPlus != null ? mainPremium * (cmCurrentComPlus / 100) : 0;
+
+  let ridersCommission = 0;
+  let ridersComPlus = 0;
+  let hasLaBonus = cmCurrentLaBonus != null;
+  const riderLines = cmRiders.map((r, i) => {
+    const commission = r.premium * (r.rate / 100);
+    const comPlusAmt = r.comPlus != null ? r.premium * (r.comPlus / 100) : 0;
+    ridersCommission += commission;
+    ridersComPlus += comPlusAmt;
+    if (r.laBonus != null) hasLaBonus = true;
+    const label = r.plan ? `${r.plan.code} — ${r.plan.name}` : `สัญญาเพิ่มเติม #${i + 1} (กรอกเอง)`;
+    return { label, amount: commission };
+  });
+
+  const totalCommission = mainCommission + ridersCommission;
+  const totalComPlus = mainComPlus + ridersComPlus;
+  const gross = totalCommission + totalComPlus;
   const tax = gross * (taxPct / 100);
   const net = gross - tax;
 
-  const comPlusRow = document.getElementById('cm-complus-row');
-  comPlusRow.style.display = cmCurrentComPlus != null ? '' : 'none';
-  document.getElementById('cm-complus').textContent = formatMoney(comPlusAmount);
+  let breakdownHtml = `<div class="dark-row"><span>สัญญาหลัก${cmSelectedPlan ? ` (${escapeHtml(cmSelectedPlan.code)})` : ''}</span><span>${formatMoney(mainCommission)}</span></div>`;
+  breakdownHtml += riderLines.map(l => `<div class="dark-row"><span>${escapeHtml(l.label)}</span><span>${formatMoney(l.amount)}</span></div>`).join('');
+  document.getElementById('cm-breakdown').innerHTML = breakdownHtml;
 
-  document.getElementById('cm-commission').textContent = formatMoney(commission);
+  const comPlusRow = document.getElementById('cm-complus-row');
+  comPlusRow.style.display = totalComPlus > 0 ? '' : 'none';
+  document.getElementById('cm-complus').textContent = formatMoney(totalComPlus);
+
+  document.getElementById('cm-commission').textContent = formatMoney(totalCommission);
   document.getElementById('cm-gross').textContent = formatMoney(gross);
   document.getElementById('cm-tax-amount').textContent = '-' + formatMoney(tax);
   document.getElementById('cm-net').textContent = formatMoney(net);
+
+  document.getElementById('cm-bonus-hint').style.display = hasLaBonus ? '' : 'none';
 }
 
 // ---------- MDRT tracking ----------

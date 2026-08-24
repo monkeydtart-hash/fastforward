@@ -457,3 +457,26 @@ const COMMISSION_RATE_TABLE = [
     { ageRange: '71-80', condition: null, y1: 2, y2: 2, y3: 2, y4: 2, participation: null, comPlus: 2, laBonus: 12 }
   ]}
 ];
+
+// Tag every plan as a main contract or a rider (สัญญาเพิ่มเติม), so the calculator UI can
+// split them into separate "สัญญาหลัก" / "สัญญาเพิ่มเติม" pickers. Based on category, except
+// "เฮลท์ ฟิต สบายสบาย" which mixes one main contract (W013) with its common riders.
+const RIDER_CATEGORIES = new Set([
+  'PA',
+  'สัญญาเพิ่มเติมอุบัติเหตุ',
+  'สัญญาเพิ่มเติมค่าชดเชยรายวัน',
+  'สัญญาเพิ่มเติมโรคร้ายแรง',
+  'สัญญาเพิ่มเติมชั่วระยะเวลา',
+  'สัญญาเพิ่มเติมประกันสุขภาพ',
+  'LV สัญญาเพิ่มเติมอุบัติเหตุ',
+  'LV สัญญาเพิ่มเติมค่าชดเชยรายวัน',
+  'LV สัญญาเพิ่มเติมโรคร้ายแรง',
+  'LV สัญญาเพิ่มเติมประกันสุขภาพ'
+]);
+COMMISSION_RATE_TABLE.forEach(p => {
+  if (p.category === 'เฮลท์ ฟิต สบายสบาย') {
+    p.kind = p.code === 'W013' ? 'main' : 'rider';
+  } else {
+    p.kind = RIDER_CATEGORIES.has(p.category) ? 'rider' : 'main';
+  }
+});
