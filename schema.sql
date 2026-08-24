@@ -5,44 +5,30 @@ create table if not exists members (
   phone text not null default ''
 );
 
-create table if not exists cases (
+create table if not exists posts (
   id serial primary key,
-  date_proposed date,
-  customer_name text not null default '',
-  phone text not null default '',
-  gender text not null default '',
-  age integer,
-  plan_type text not null default '',
-  company text not null default '',
-  sum_insured numeric,
-  premium numeric,
-  status text not null default 'เสนอแล้ว',
-  follow_up_date date,
-  not_close_reason text not null default '',
-  proposed_by text not null default '',
-  note text not null default '',
+  author text not null default '',
+  content text not null,
   created_at timestamptz not null default now()
 );
 
-create table if not exists score_entries (
+create table if not exists resources (
   id serial primary key,
-  scope text not null default 'individual' check (scope in ('individual', 'team')),
-  member text,
-  points integer not null,
-  reason text not null default '',
+  title text not null,
+  category text not null default '',
+  content text not null default '',
+  created_by text not null default '',
   created_at timestamptz not null default now()
 );
 
-create table if not exists competitor_teams (
+create table if not exists events (
   id serial primary key,
-  name text not null unique
-);
-
-create table if not exists premium_entries (
-  id serial primary key,
-  team text not null,
-  amount numeric not null,
+  title text not null,
+  event_date date not null,
+  event_time text not null default '',
+  location text not null default '',
   note text not null default '',
+  created_by text not null default '',
   created_at timestamptz not null default now()
 );
 

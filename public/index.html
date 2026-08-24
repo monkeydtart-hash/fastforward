@@ -11,16 +11,15 @@
 <header class="topbar">
   <div class="topbar-brand">
     <h1><img class="logo-mark" src="logo.png" alt="Fast Forward"> Fast Forward</h1>
-    <div class="topbar-sub">ทีม Smart Agent · ติดตามเคสและคะแนนทีม</div>
+    <div class="topbar-sub">คอมมูทีม · แชร์ไอเดีย ความรู้ และนัดหมาย เพื่อช่วยกันหาลูกค้า</div>
   </div>
 </header>
 
 <nav class="tabs">
   <button data-tab="dashboard" class="active"><span class="tab-icon">📊</span>แดชบอร์ด</button>
-  <button data-tab="propose"><span class="tab-icon">➕</span>เสนอเคส</button>
-  <button data-tab="cases"><span class="tab-icon">📋</span>เคสทั้งหมด</button>
-  <button data-tab="scores"><span class="tab-icon">🏆</span>คะแนน</button>
-  <button data-tab="premiums"><span class="tab-icon">💰</span>ยอดเบี้ย</button>
+  <button data-tab="feed"><span class="tab-icon">💬</span>ฟีด</button>
+  <button data-tab="resources"><span class="tab-icon">📚</span>คลังความรู้</button>
+  <button data-tab="events"><span class="tab-icon">📅</span>นัดหมาย</button>
   <button data-tab="sa-asoke"><span class="tab-icon">🏢</span>SA Asoke</button>
   <button data-tab="shirts"><span class="tab-icon">🎉</span>ค่างานเลี้ยง</button>
   <button data-tab="members"><span class="tab-icon">👥</span>สมาชิก</button>
@@ -30,263 +29,125 @@
 
   <section id="tab-dashboard">
     <div class="dashboard-grid">
-      <div class="card accent-gold">
-        <h2><span class="h2-icon">🏆</span>คะแนนรวมทีม</h2>
-        <div class="stat-hero">
-          <div class="value-row">
-            <span class="value" id="dash-team-total">0</span>
-            <span class="target">แต้ม</span>
-          </div>
-        </div>
-      </div>
-
       <div class="card accent-blue">
-        <h2><span class="h2-icon">💰</span>ยอดเบี้ยทีมเรา vs ทีมคู่แข่ง</h2>
-        <div id="dash-premium-leaderboard"></div>
+        <h2><span class="h2-icon">💬</span>โพสต์ล่าสุดในฟีด</h2>
+        <div id="dash-recent-posts"></div>
       </div>
 
       <div class="card accent-good">
-        <h2><span class="h2-icon">🥇</span>อันดับคะแนนรายบุคคล</h2>
-        <div id="dash-leaderboard"></div>
+        <h2><span class="h2-icon">📅</span>นัดหมายที่จะถึง</h2>
+        <div id="dash-upcoming-events"></div>
       </div>
 
-      <div class="card accent-blue">
-        <h2><span class="h2-icon">🕒</span>เคสล่าสุด</h2>
-        <div id="dash-recent-cases"></div>
+      <div class="card accent-gold">
+        <h2><span class="h2-icon">📚</span>ความรู้/สคริปต์ล่าสุด</h2>
+        <div id="dash-recent-resources"></div>
       </div>
     </div>
   </section>
 
-  <section id="tab-propose" style="display:none">
+  <section id="tab-feed" style="display:none">
     <div class="card">
-      <h2><span class="h2-icon">📝</span>เสนอเคสใหม่</h2>
-      <form class="stack" id="form-case">
-        <div class="row2">
-          <div class="field">
-            <label>ผู้เสนอขาย</label>
-            <select id="c-proposedBy" required></select>
-          </div>
-          <div class="field">
-            <label>วันที่เสนอ</label>
-            <input type="date" id="c-dateProposed" required>
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>ชื่อลูกค้า</label>
-            <input type="text" id="c-customerName" placeholder="ชื่อ-นามสกุล">
-          </div>
-          <div class="field">
-            <label>เบอร์โทร</label>
-            <input type="text" id="c-phone" placeholder="08xxxxxxxx">
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>เพศ</label>
-            <select id="c-gender">
-              <option value="">-</option>
-              <option value="ชาย">ชาย</option>
-              <option value="หญิง">หญิง</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>อายุ</label>
-            <input type="number" id="c-age" min="0">
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>แบบประกัน</label>
-            <input type="text" id="c-planType" placeholder="เช่น สะสมทรัพย์, ตลอดชีพ">
-          </div>
-          <div class="field">
-            <label>บริษัทประกัน</label>
-            <input type="text" id="c-company">
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>ทุนประกัน (บาท)</label>
-            <input type="number" id="c-sumInsured" min="0">
-          </div>
-          <div class="field">
-            <label>เบี้ยประกัน (บาท)</label>
-            <input type="number" id="c-premium" min="0">
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>สถานะ</label>
-            <select id="c-status">
-              <option value="เสนอแล้ว">เสนอแล้ว</option>
-              <option value="รอนัด">รอนัด</option>
-              <option value="ปิดได้">ปิดได้</option>
-              <option value="ไม่ปิด">ไม่ปิด</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>วันนัดติดตาม</label>
-            <input type="date" id="c-followUpDate">
-          </div>
+      <h2><span class="h2-icon">📝</span>โพสต์ใหม่</h2>
+      <form class="stack" id="form-post">
+        <div class="field">
+          <label>ผู้โพสต์</label>
+          <select id="pt-author" required></select>
         </div>
         <div class="field">
-          <label>เหตุผลที่ไม่ปิด (ถ้ามี)</label>
-          <input type="text" id="c-notCloseReason">
+          <label>ข้อความ</label>
+          <textarea id="pt-content" rows="3" placeholder="อัปเดต ไอเดีย เคล็ดลับ หรือขอความช่วยเหลือจากทีม..." required></textarea>
         </div>
-        <div class="field">
-          <label>หมายเหตุ</label>
-          <textarea id="c-note" rows="2"></textarea>
-        </div>
-        <button type="submit" class="primary">บันทึกเคส</button>
-      </form>
-    </div>
-  </section>
-
-  <section id="tab-cases" style="display:none">
-    <div class="card">
-      <div class="section-header">
-        <h2 style="margin:0"><span class="h2-icon">📋</span>เคสทั้งหมด</h2>
-      </div>
-      <div class="table-scroll">
-        <table class="data" id="cases-table">
-          <thead>
-            <tr>
-              <th>วันที่เสนอ</th>
-              <th>ลูกค้า</th>
-              <th>แบบประกัน</th>
-              <th>บริษัท</th>
-              <th>เบี้ยประกัน</th>
-              <th>สถานะ</th>
-              <th>ผู้เสนอขาย</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="cases-tbody"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="cases-empty" style="display:none">ยังไม่มีเคส</div>
-    </div>
-  </section>
-
-  <section id="tab-scores" style="display:none">
-    <div class="card">
-      <h2><span class="h2-icon">➕</span>เพิ่มคะแนน</h2>
-      <form class="stack" id="form-score">
-        <div class="row2">
-          <div class="field">
-            <label>ประเภทคะแนน</label>
-            <select id="s-scope">
-              <option value="individual">รายบุคคล</option>
-              <option value="team">ทีม</option>
-            </select>
-          </div>
-          <div class="field" id="s-member-field">
-            <label>สมาชิก</label>
-            <select id="s-member" required></select>
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>แต้ม (+/-)</label>
-            <input type="number" id="s-points" required>
-          </div>
-          <div class="field">
-            <label>เหตุผล / ที่มาแต้ม</label>
-            <input type="text" id="s-reason" placeholder="เช่น ปิดเคสได้, ทำกิจกรรมทีม">
-          </div>
-        </div>
-        <button type="submit" class="primary">บันทึกคะแนน</button>
+        <button type="submit" class="primary">โพสต์</button>
       </form>
     </div>
 
     <div class="card">
-      <h2><span class="h2-icon">🏆</span>คะแนนทีม (แยกจากรายบุคคล)</h2>
-      <div class="stat-hero">
-        <div class="value-row">
-          <span class="value" id="scores-team-total">0</span>
-          <span class="target">แต้ม</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2><span class="h2-icon">🥇</span>อันดับคะแนนรายบุคคล</h2>
-      <div id="scores-leaderboard"></div>
-    </div>
-
-    <div class="card">
-      <h2><span class="h2-icon">📜</span>ประวัติการให้คะแนน</h2>
-      <div class="table-scroll">
-        <table class="data" id="score-history-table">
-          <thead>
-            <tr><th>วันที่</th><th>สมาชิก</th><th>แต้ม</th><th>เหตุผล</th><th></th></tr>
-          </thead>
-          <tbody id="score-history-tbody"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="score-history-empty" style="display:none">ยังไม่มีประวัติ</div>
+      <h2><span class="h2-icon">💬</span>ฟีดของทีม</h2>
+      <div id="feed-list"></div>
+      <div class="empty" id="feed-empty" style="display:none">ยังไม่มีโพสต์ เริ่มแชร์อะไรบางอย่างกับทีมสิ</div>
     </div>
   </section>
 
-  <section id="tab-premiums" style="display:none">
+  <section id="tab-resources" style="display:none">
     <div class="card">
-      <h2><span class="h2-icon">💵</span>บันทึกยอดเบี้ย</h2>
-      <form class="stack" id="form-premium">
+      <h2><span class="h2-icon">➕</span>เพิ่มความรู้ / สคริปต์ขาย</h2>
+      <form class="stack" id="form-resource">
         <div class="row2">
           <div class="field">
-            <label>ทีม</label>
-            <select id="p-team" required></select>
+            <label>หัวข้อ</label>
+            <input type="text" id="rs-title" placeholder="เช่น สคริปต์เปิดการขาย, รับมือลูกค้าปฏิเสธ" required>
           </div>
           <div class="field">
-            <label>ยอดเบี้ย (บาท)</label>
-            <input type="number" id="p-amount" required>
+            <label>หมวดหมู่</label>
+            <input type="text" id="rs-category" placeholder="เช่น สคริปต์ขาย, Objection, เอกสาร">
+          </div>
+        </div>
+        <div class="field">
+          <label>เนื้อหา</label>
+          <textarea id="rs-content" rows="4" required></textarea>
+        </div>
+        <div class="field">
+          <label>ผู้เพิ่ม</label>
+          <select id="rs-author"></select>
+        </div>
+        <button type="submit" class="primary">บันทึก</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">📚</span>คลังความรู้ทีม</h2>
+      <div id="resources-list"></div>
+      <div class="empty" id="resources-empty" style="display:none">ยังไม่มีความรู้ในคลัง</div>
+    </div>
+  </section>
+
+  <section id="tab-events" style="display:none">
+    <div class="card">
+      <h2><span class="h2-icon">➕</span>เพิ่มนัดหมาย / กิจกรรม</h2>
+      <form class="stack" id="form-event">
+        <div class="row2">
+          <div class="field">
+            <label>ชื่อกิจกรรม</label>
+            <input type="text" id="ev-title" placeholder="เช่น นัดลูกค้า, ประชุมทีม, ออกบูธ" required>
+          </div>
+          <div class="field">
+            <label>วันที่</label>
+            <input type="date" id="ev-date" required>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>เวลา</label>
+            <input type="text" id="ev-time" placeholder="เช่น 14:00">
+          </div>
+          <div class="field">
+            <label>สถานที่</label>
+            <input type="text" id="ev-location">
           </div>
         </div>
         <div class="field">
           <label>หมายเหตุ</label>
-          <input type="text" id="p-note" placeholder="เช่น ยอดเดือน ส.ค., เคสลูกค้า...">
+          <textarea id="ev-note" rows="2"></textarea>
         </div>
-        <button type="submit" class="primary">บันทึกยอดเบี้ย</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2><span class="h2-icon">💰</span>ยอดเบี้ยทีมเรา vs ทีมคู่แข่ง</h2>
-      <div id="premium-leaderboard"></div>
-    </div>
-
-    <div class="card">
-      <h2><span class="h2-icon">📜</span>ประวัติการบันทึกยอดเบี้ย</h2>
-      <div class="table-scroll">
-        <table class="data" id="premium-history-table">
-          <thead>
-            <tr><th>วันที่</th><th>ทีม</th><th>ยอดเบี้ย</th><th>หมายเหตุ</th><th></th></tr>
-          </thead>
-          <tbody id="premium-history-tbody"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="premium-history-empty" style="display:none">ยังไม่มีประวัติ</div>
-    </div>
-
-    <div class="card">
-      <div class="section-header">
-        <h2 style="margin:0"><span class="h2-icon">🥊</span>จัดการทีมคู่แข่ง</h2>
-      </div>
-      <div class="table-scroll">
-        <table class="data" id="competitor-teams-table">
-          <thead><tr><th>ชื่อทีม</th><th></th></tr></thead>
-          <tbody id="competitor-teams-tbody"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="competitor-teams-empty" style="display:none">ยังไม่มีทีมคู่แข่ง</div>
-      <form class="stack" id="form-competitor-team" style="margin-top:12px">
         <div class="field">
-          <label>เพิ่มทีมคู่แข่ง</label>
-          <input type="text" id="ct-name" placeholder="ชื่อทีม" required>
+          <label>ผู้นัด</label>
+          <select id="ev-author"></select>
         </div>
-        <button type="submit" class="primary">เพิ่มทีม</button>
+        <button type="submit" class="primary">บันทึกนัดหมาย</button>
       </form>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">📅</span>กำลังจะถึง</h2>
+      <div id="events-upcoming-list"></div>
+      <div class="empty" id="events-upcoming-empty" style="display:none">ยังไม่มีนัดหมายที่จะถึง</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">🗂️</span>ผ่านมาแล้ว</h2>
+      <div id="events-past-list"></div>
+      <div class="empty" id="events-past-empty" style="display:none">ยังไม่มีนัดหมายที่ผ่านมา</div>
     </div>
   </section>
 

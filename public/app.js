@@ -16,13 +16,6 @@ async function api(path, opts) {
   return res.json();
 }
 
-const statusClass = {
-  'เสนอแล้ว': 'proposed',
-  'รอนัด': 'pending',
-  'ปิดได้': 'closed',
-  'ไม่ปิด': 'lost'
-};
-
 // ---------- Tabs ----------
 const tabButtons = document.querySelectorAll('nav.tabs button');
 tabButtons.forEach(btn => {
@@ -37,10 +30,9 @@ tabButtons.forEach(btn => {
 
 function loadTab(tab) {
   if (tab === 'dashboard') loadDashboard();
-  if (tab === 'propose') loadProposeForm();
-  if (tab === 'cases') loadCases();
-  if (tab === 'scores') loadScores();
-  if (tab === 'premiums') loadPremiums();
+  if (tab === 'feed') loadFeed();
+  if (tab === 'resources') loadResources();
+  if (tab === 'events') loadEvents();
   if (tab === 'sa-asoke') loadSaAsoke();
   if (tab === 'shirts') loadShirts();
   if (tab === 'members') loadMembers();
@@ -66,301 +58,198 @@ function escapeAttr(str) { return escapeHtml(str); }
 
 // ---------- Dashboard ----------
 async function loadDashboard() {
-  const [scores, cases, premiums] = await Promise.all([
-    api('/scores'), api('/cases'), api('/premiums')
+  const [posts, events, resources] = await Promise.all([
+    api('/posts'), api('/events'), api('/resources')
   ]);
 
-  document.getElementById('dash-team-total').textContent = scores.teamTotal || 0;
+  renderPostList('dash-recent-posts', posts.slice(0, 3), { compact: true });
 
-  renderLeaderboard('dash-leaderboard', scores.leaderboard);
-  renderPremiumLeaderboard('dash-premium-leaderboard', premiums.leaderboard);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter(e => e.eventDate >= today).slice(0, 5);
+  const upcomingBox = document.getElementById('dash-upcoming-events');
+  upcomingBox.innerHTML = upcoming.length
+    ? upcoming.map(eventRowHtml).join('')
+    : '<div class="empty">ยังไม่มีนัดหมายที่จะถึง</div>';
 
-  const recent = cases.slice(0, 5);
-  const box = document.getElementById('dash-recent-cases');
-  if (recent.length === 0) {
-    box.innerHTML = '<div class="empty">ยังไม่มีเคส</div>';
-  } else {
-    box.innerHTML = recent.map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gridline)">
-        <div>
-          <div style="font-size:14px">${escapeHtml(c.customerName || '(ไม่ระบุชื่อ)')} — ${escapeHtml(c.planType || '-')}</div>
-          <div class="hint">${escapeHtml(c.proposedBy || '-')} · ${escapeHtml(c.dateProposed || '-')}</div>
-        </div>
-        <span class="status-pill ${statusClass[c.status] || 'proposed'}">${escapeHtml(c.status)}</span>
-      </div>
-    `).join('');
-  }
+  const recentResources = resources.slice(0, 3);
+  const resBox = document.getElementById('dash-recent-resources');
+  resBox.innerHTML = recentResources.length
+    ? recentResources.map(resourceRowHtml).join('')
+    : '<div class="empty">ยังไม่มีความรู้ในคลัง</div>';
 }
 
-function renderLeaderboard(elId, leaderboard) {
+// ---------- Feed ----------
+function renderPostList(elId, posts, opts) {
   const box = document.getElementById(elId);
-  if (!leaderboard.length) {
-    box.innerHTML = '<div class="empty">ยังไม่มีสมาชิก</div>';
+  if (!posts.length) {
+    box.innerHTML = '<div class="empty">ยังไม่มีโพสต์</div>';
     return;
   }
-  const max = Math.max(1, ...leaderboard.map(m => m.points));
-  box.innerHTML = leaderboard.map((m, i) => {
-    const pct = Math.max(3, Math.round((Math.max(0, m.points) / max) * 100));
-    return `
-      <div class="leaderboard-row">
-        <div class="rank ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</div>
-        <div class="name-bar">
-          <div class="name">${escapeHtml(m.name)} <span class="role">${escapeHtml(m.role || '')}</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-        </div>
-        <div class="points">${m.points}</div>
+  box.innerHTML = posts.map(p => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--gridline)">
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <span style="font-weight:600">${escapeHtml(p.author || 'ไม่ระบุชื่อ')}</span>
+        <span class="hint">${new Date(p.createdAt).toLocaleString('th-TH')}</span>
       </div>
-    `;
-  }).join('');
-}
-
-// ---------- Propose case ----------
-async function loadProposeForm() {
-  await fetchMembers();
-  fillMemberSelect(document.getElementById('c-proposedBy'));
-  const dateEl = document.getElementById('c-dateProposed');
-  if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
-}
-
-document.getElementById('form-case').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const payload = {
-    proposedBy: document.getElementById('c-proposedBy').value,
-    dateProposed: document.getElementById('c-dateProposed').value,
-    customerName: document.getElementById('c-customerName').value,
-    phone: document.getElementById('c-phone').value,
-    gender: document.getElementById('c-gender').value,
-    age: document.getElementById('c-age').value,
-    planType: document.getElementById('c-planType').value,
-    company: document.getElementById('c-company').value,
-    sumInsured: document.getElementById('c-sumInsured').value,
-    premium: document.getElementById('c-premium').value,
-    status: document.getElementById('c-status').value,
-    followUpDate: document.getElementById('c-followUpDate').value,
-    notCloseReason: document.getElementById('c-notCloseReason').value,
-    note: document.getElementById('c-note').value
-  };
-  await api('/cases', { method: 'POST', body: JSON.stringify(payload) });
-  toast('บันทึกเคสแล้ว');
-  e.target.reset();
-  document.getElementById('c-dateProposed').value = new Date().toISOString().slice(0, 10);
-  await fetchMembers();
-  fillMemberSelect(document.getElementById('c-proposedBy'));
-});
-
-// ---------- Cases list ----------
-async function loadCases() {
-  const cases = await api('/cases');
-  const tbody = document.getElementById('cases-tbody');
-  const empty = document.getElementById('cases-empty');
-  if (!cases.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = cases.map(c => `
-    <tr>
-      <td>${escapeHtml(c.dateProposed || '-')}</td>
-      <td>${escapeHtml(c.customerName || '-')}</td>
-      <td>${escapeHtml(c.planType || '-')}</td>
-      <td>${escapeHtml(c.company || '-')}</td>
-      <td>${c.premium ? Number(c.premium).toLocaleString() : '-'}</td>
-      <td><span class="status-pill ${statusClass[c.status] || 'proposed'}">${escapeHtml(c.status)}</span></td>
-      <td>${escapeHtml(c.proposedBy || '-')}</td>
-      <td><button class="ghost" data-del-case="${c.id}">ลบ</button></td>
-    </tr>
+      <div style="margin-top:4px;white-space:pre-wrap">${escapeHtml(p.content)}</div>
+      ${opts && opts.compact ? '' : `<div style="margin-top:6px"><button class="ghost" data-del-post="${p.id}">ลบ</button></div>`}
+    </div>
   `).join('');
 
-  tbody.querySelectorAll('[data-del-case]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('ลบเคสนี้?')) return;
-      await api('/cases/' + btn.dataset.delCase, { method: 'DELETE' });
-      loadCases();
+  if (!(opts && opts.compact)) {
+    box.querySelectorAll('[data-del-post]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('ลบโพสต์นี้?')) return;
+        await api('/posts/' + btn.dataset.delPost, { method: 'DELETE' });
+        loadFeed();
+      });
     });
-  });
+  }
 }
 
-// ---------- Scores ----------
-async function loadScores() {
+async function loadFeed() {
   await fetchMembers();
-  fillMemberSelect(document.getElementById('s-member'));
-  const scores = await api('/scores');
-  document.getElementById('scores-team-total').textContent = scores.teamTotal;
-  renderLeaderboard('scores-leaderboard', scores.leaderboard);
-
-  const tbody = document.getElementById('score-history-tbody');
-  const empty = document.getElementById('score-history-empty');
-  if (!scores.entries.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = scores.entries.map(e => `
-    <tr>
-      <td>${new Date(e.createdAt).toLocaleDateString('th-TH')}</td>
-      <td>${e.scope === 'team' ? 'ทีม' : escapeHtml(e.member || '-')}</td>
-      <td style="font-weight:700">${e.points > 0 ? '+' : ''}${e.points}</td>
-      <td>${escapeHtml(e.reason || '-')}</td>
-      <td><button class="ghost" data-del-score="${e.id}">ลบ</button></td>
-    </tr>
-  `).join('');
-
-  tbody.querySelectorAll('[data-del-score]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('ลบรายการนี้?')) return;
-      await api('/scores/' + btn.dataset.delScore, { method: 'DELETE' });
-      loadScores();
-    });
-  });
+  fillMemberSelect(document.getElementById('pt-author'));
+  const posts = await api('/posts');
+  document.getElementById('feed-empty').style.display = posts.length ? 'none' : 'block';
+  renderPostList('feed-list', posts, { compact: false });
 }
 
-document.getElementById('s-scope').addEventListener('change', (e) => {
-  document.getElementById('s-member-field').style.display = e.target.value === 'team' ? 'none' : '';
-});
-
-document.getElementById('form-score').addEventListener('submit', async (e) => {
+document.getElementById('form-post').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const scope = document.getElementById('s-scope').value;
   const payload = {
-    scope,
-    member: scope === 'team' ? null : document.getElementById('s-member').value,
-    points: Number(document.getElementById('s-points').value),
-    reason: document.getElementById('s-reason').value
+    author: document.getElementById('pt-author').value,
+    content: document.getElementById('pt-content').value
   };
-  await api('/scores', { method: 'POST', body: JSON.stringify(payload) });
-  toast('บันทึกคะแนนแล้ว');
-  e.target.reset();
-  document.getElementById('s-member-field').style.display = '';
-  loadScores();
+  await api('/posts', { method: 'POST', body: JSON.stringify(payload) });
+  toast('โพสต์แล้ว');
+  document.getElementById('pt-content').value = '';
+  loadFeed();
 });
 
-// ---------- Premiums ----------
-const OUR_TEAM = 'ทีมเรา';
-let competitorTeamsCache = [];
-
-function fillTeamSelect(select) {
-  const names = [OUR_TEAM, ...competitorTeamsCache.map(t => t.name)];
-  select.innerHTML = names.map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
-}
-
-function renderPremiumLeaderboard(elId, leaderboard) {
-  const box = document.getElementById(elId);
-  if (!leaderboard.length) {
-    box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
-    return;
-  }
-  const max = Math.max(1, ...leaderboard.map(t => t.total));
-  const ourTotal = (leaderboard.find(t => t.team === OUR_TEAM) || {}).total || 0;
-  const topRival = leaderboard.find(t => t.team !== OUR_TEAM);
-  const legend = `
-    <div class="compare-bar-legend">
-      <span><span class="swatch ours"></span>ทีมเรา</span>
-      <span><span class="swatch theirs"></span>ทีมคู่แข่ง</span>
+// ---------- Knowledge base / sales scripts ----------
+function resourceRowHtml(r, opts) {
+  return `
+    <div style="padding:10px 0;border-bottom:1px solid var(--gridline)">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <span style="font-weight:600">${escapeHtml(r.title)}</span>
+        ${r.category ? `<span class="status-pill proposed">${escapeHtml(r.category)}</span>` : ''}
+      </div>
+      <div style="margin-top:4px;white-space:pre-wrap">${escapeHtml(r.content)}</div>
+      <div class="hint" style="margin-top:6px">${escapeHtml(r.createdBy || '-')} · ${new Date(r.createdAt).toLocaleDateString('th-TH')}</div>
+      ${opts && opts.withDelete ? `<div style="margin-top:6px"><button class="ghost" data-del-resource="${r.id}">ลบ</button></div>` : ''}
     </div>
   `;
-  let summary = '';
-  if (topRival) {
-    const diff = ourTotal - topRival.total;
-    const leading = diff >= 0;
-    summary = `
-      <div class="diff-summary ${leading ? 'lead' : 'behind'}">
-        ${leading ? 'นำ' : 'ตาม'} "${escapeHtml(topRival.team)}" อยู่ ${Math.abs(diff).toLocaleString()} บาท
-      </div>
-    `;
-  }
-  const rows = leaderboard.map(t => {
-    const ours = t.team === OUR_TEAM;
-    const pct = Math.max(2, Math.round((Math.max(0, t.total) / max) * 100));
-    return `
-      <div class="compare-bar-row">
-        <div class="compare-bar-head">
-          <span class="name">${escapeHtml(t.team)} <span class="tag">${ours ? '(เรา)' : '(คู่แข่ง)'}</span></span>
-          <span class="value">${t.total.toLocaleString()} บาท</span>
-        </div>
-        <div class="compare-bar-track"><div class="compare-bar-fill${ours ? ' ours' : ''}" style="width:${pct}%"></div></div>
-      </div>
-    `;
-  }).join('');
-  box.innerHTML = legend + summary + rows;
 }
 
-async function loadPremiums() {
-  competitorTeamsCache = await api('/competitor-teams');
-  fillTeamSelect(document.getElementById('p-team'));
-
-  const premiums = await api('/premiums');
-  renderPremiumLeaderboard('premium-leaderboard', premiums.leaderboard);
-
-  const tbody = document.getElementById('premium-history-tbody');
-  const empty = document.getElementById('premium-history-empty');
-  if (!premiums.entries.length) {
-    tbody.innerHTML = '';
+async function loadResources() {
+  await fetchMembers();
+  fillMemberSelect(document.getElementById('rs-author'));
+  const resources = await api('/resources');
+  const box = document.getElementById('resources-list');
+  const empty = document.getElementById('resources-empty');
+  if (!resources.length) {
+    box.innerHTML = '';
     empty.style.display = 'block';
-  } else {
-    empty.style.display = 'none';
-    tbody.innerHTML = premiums.entries.map(e => `
-      <tr>
-        <td>${new Date(e.createdAt).toLocaleDateString('th-TH')}</td>
-        <td>${escapeHtml(e.team)}</td>
-        <td style="font-weight:700">${e.amount.toLocaleString()}</td>
-        <td>${escapeHtml(e.note || '-')}</td>
-        <td><button class="ghost" data-del-premium="${e.id}">ลบ</button></td>
-      </tr>
-    `).join('');
-    tbody.querySelectorAll('[data-del-premium]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('ลบรายการนี้?')) return;
-        await api('/premiums/' + btn.dataset.delPremium, { method: 'DELETE' });
-        loadPremiums();
-      });
-    });
+    return;
   }
+  empty.style.display = 'none';
+  box.innerHTML = resources.map(r => resourceRowHtml(r, { withDelete: true })).join('');
 
-  const ctBody = document.getElementById('competitor-teams-tbody');
-  const ctEmpty = document.getElementById('competitor-teams-empty');
-  if (!competitorTeamsCache.length) {
-    ctBody.innerHTML = '';
-    ctEmpty.style.display = 'block';
-  } else {
-    ctEmpty.style.display = 'none';
-    ctBody.innerHTML = competitorTeamsCache.map(t => `
-      <tr>
-        <td>${escapeHtml(t.name)}</td>
-        <td><button class="ghost" data-del-team="${t.id}">ลบ</button></td>
-      </tr>
-    `).join('');
-    ctBody.querySelectorAll('[data-del-team]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('ลบทีมนี้?')) return;
-        await api('/competitor-teams/' + btn.dataset.delTeam, { method: 'DELETE' });
-        loadPremiums();
-      });
+  box.querySelectorAll('[data-del-resource]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรายการนี้?')) return;
+      await api('/resources/' + btn.dataset.delResource, { method: 'DELETE' });
+      loadResources();
     });
-  }
+  });
 }
 
-document.getElementById('form-premium').addEventListener('submit', async (e) => {
+document.getElementById('form-resource').addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {
-    team: document.getElementById('p-team').value,
-    amount: Number(document.getElementById('p-amount').value),
-    note: document.getElementById('p-note').value
+    title: document.getElementById('rs-title').value,
+    category: document.getElementById('rs-category').value,
+    content: document.getElementById('rs-content').value,
+    createdBy: document.getElementById('rs-author').value
   };
-  await api('/premiums', { method: 'POST', body: JSON.stringify(payload) });
-  toast('บันทึกยอดเบี้ยแล้ว');
+  await api('/resources', { method: 'POST', body: JSON.stringify(payload) });
+  toast('บันทึกแล้ว');
   e.target.reset();
-  loadPremiums();
+  loadResources();
 });
 
-document.getElementById('form-competitor-team').addEventListener('submit', async (e) => {
+// ---------- Events / calendar ----------
+function eventRowHtml(ev, opts) {
+  return `
+    <div style="padding:10px 0;border-bottom:1px solid var(--gridline)">
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <span style="font-weight:600">${escapeHtml(ev.title)}</span>
+        <span class="hint">${escapeHtml(ev.eventDate)}${ev.eventTime ? ' · ' + escapeHtml(ev.eventTime) : ''}</span>
+      </div>
+      ${ev.location ? `<div class="hint" style="margin-top:2px">📍 ${escapeHtml(ev.location)}</div>` : ''}
+      ${ev.note ? `<div style="margin-top:4px;white-space:pre-wrap">${escapeHtml(ev.note)}</div>` : ''}
+      <div class="hint" style="margin-top:4px">${escapeHtml(ev.createdBy || '-')}</div>
+      ${opts && opts.withDelete ? `<div style="margin-top:6px"><button class="ghost" data-del-event="${ev.id}">ลบ</button></div>` : ''}
+    </div>
+  `;
+}
+
+async function loadEvents() {
+  await fetchMembers();
+  fillMemberSelect(document.getElementById('ev-author'));
+  const dateEl = document.getElementById('ev-date');
+  if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+
+  const events = await api('/events');
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter(e => e.eventDate >= today);
+  const past = events.filter(e => e.eventDate < today).reverse();
+
+  const upBox = document.getElementById('events-upcoming-list');
+  const upEmpty = document.getElementById('events-upcoming-empty');
+  if (!upcoming.length) {
+    upBox.innerHTML = '';
+    upEmpty.style.display = 'block';
+  } else {
+    upEmpty.style.display = 'none';
+    upBox.innerHTML = upcoming.map(ev => eventRowHtml(ev, { withDelete: true })).join('');
+  }
+
+  const pastBox = document.getElementById('events-past-list');
+  const pastEmpty = document.getElementById('events-past-empty');
+  if (!past.length) {
+    pastBox.innerHTML = '';
+    pastEmpty.style.display = 'block';
+  } else {
+    pastEmpty.style.display = 'none';
+    pastBox.innerHTML = past.map(ev => eventRowHtml(ev, { withDelete: true })).join('');
+  }
+
+  document.querySelectorAll('[data-del-event]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบนัดหมายนี้?')) return;
+      await api('/events/' + btn.dataset.delEvent, { method: 'DELETE' });
+      loadEvents();
+    });
+  });
+}
+
+document.getElementById('form-event').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const payload = { name: document.getElementById('ct-name').value };
-  await api('/competitor-teams', { method: 'POST', body: JSON.stringify(payload) });
-  toast('เพิ่มทีมคู่แข่งแล้ว');
+  const payload = {
+    title: document.getElementById('ev-title').value,
+    eventDate: document.getElementById('ev-date').value,
+    eventTime: document.getElementById('ev-time').value,
+    location: document.getElementById('ev-location').value,
+    note: document.getElementById('ev-note').value,
+    createdBy: document.getElementById('ev-author').value
+  };
+  await api('/events', { method: 'POST', body: JSON.stringify(payload) });
+  toast('บันทึกนัดหมายแล้ว');
   e.target.reset();
-  loadPremiums();
+  document.getElementById('ev-date').value = new Date().toISOString().slice(0, 10);
+  loadEvents();
 });
 
 // ---------- SA Asoke premium summary ----------

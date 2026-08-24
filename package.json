@@ -1,7 +1,7 @@
 {
   "name": "fast-forward",
   "version": "1.0.0",
-  "description": "Fast Forward - team case tracker & scoreboard",
+  "description": "Fast Forward - team community: feed, knowledge base, events",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
