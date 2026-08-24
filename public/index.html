@@ -8,22 +8,46 @@
 </head>
 <body>
 
-<header class="topbar">
-  <div class="topbar-brand">
-    <h1><img class="logo-mark" src="logo.png" alt="Fast Forward"> Fast Forward</h1>
-    <div class="topbar-sub">คอมมูทีม · แชร์ไอเดีย ความรู้ และนัดหมาย เพื่อช่วยกันหาลูกค้า</div>
-  </div>
-</header>
+<button class="sidebar-toggle" id="sidebar-toggle" aria-label="เปิดเมนู">☰</button>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
-<nav class="tabs">
-  <button data-tab="dashboard" class="active"><span class="tab-icon">📊</span>แดชบอร์ด</button>
-  <button data-tab="feed"><span class="tab-icon">💬</span>ฟีด</button>
-  <button data-tab="resources"><span class="tab-icon">📚</span>คลังความรู้</button>
-  <button data-tab="events"><span class="tab-icon">📅</span>นัดหมาย</button>
-  <button data-tab="sa-asoke"><span class="tab-icon">🏢</span>SA Asoke</button>
-  <button data-tab="shirts"><span class="tab-icon">🎉</span>ค่างานเลี้ยง</button>
-  <button data-tab="members"><span class="tab-icon">👥</span>สมาชิก</button>
-</nav>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <h1><img class="logo-mark" src="logo.png" alt="Fast Forward"> Fast Forward</h1>
+    <div class="sidebar-sub">คอมมูทีม · แชร์ไอเดีย ความรู้ และนัดหมาย เพื่อช่วยกันหาลูกค้า</div>
+  </div>
+
+  <nav class="side-nav">
+    <button class="nav-item active" data-tab="dashboard"><span class="tab-icon">📊</span>แดชบอร์ด</button>
+    <button class="nav-item" data-tab="start"><span class="tab-icon">🚀</span>เริ่มต้นใช้งาน</button>
+
+    <div class="nav-group" data-group="community">
+      <button class="nav-group-toggle"><span class="tab-icon">💬</span>คอมมูทีม<span class="chevron">⌄</span></button>
+      <div class="nav-group-items">
+        <button class="nav-item" data-tab="feed">ฟีด</button>
+        <button class="nav-item" data-tab="resources">คลังความรู้</button>
+        <button class="nav-item" data-tab="events">นัดหมาย</button>
+      </div>
+    </div>
+
+    <div class="nav-group collapsed" data-group="tools">
+      <button class="nav-group-toggle"><span class="tab-icon">🧮</span>เครื่องมือคำนวณ<span class="chevron">⌄</span></button>
+      <div class="nav-group-items">
+        <button class="nav-item" data-tab="commission">คำนวณคอมมิชชั่น</button>
+        <button class="nav-item" data-tab="mdrt">MDRT Tracking</button>
+      </div>
+    </div>
+
+    <div class="nav-group collapsed" data-group="reference">
+      <button class="nav-group-toggle"><span class="tab-icon">🗂️</span>ข้อมูลอ้างอิง<span class="chevron">⌄</span></button>
+      <div class="nav-group-items">
+        <button class="nav-item" data-tab="sa-asoke">SA Asoke</button>
+        <button class="nav-item" data-tab="shirts">ค่างานเลี้ยง</button>
+        <button class="nav-item" data-tab="members">สมาชิก</button>
+      </div>
+    </div>
+  </nav>
+</aside>
 
 <main>
 
@@ -42,6 +66,59 @@
       <div class="card accent-gold">
         <h2><span class="h2-icon">📚</span>ความรู้/สคริปต์ล่าสุด</h2>
         <div id="dash-recent-resources"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-start" style="display:none">
+    <div class="hero-banner">
+      <div class="hero-banner-eyebrow">🚀 เริ่มต้นใช้งาน Fast Forward</div>
+      <h2>คอมมูทีม สำหรับช่วยกันหาลูกค้าและโตไปด้วยกัน</h2>
+      <p>แชร์ไอเดีย ความรู้ และนัดหมายกับทีม รวมถึงเครื่องมือช่วยคำนวณเล็กๆ น้อยๆ ที่ใช้งานจริงได้ทันที ไม่ต้องเข้าสู่ระบบ</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">🧭</span>เริ่มต้นยังไง</h2>
+      <div class="steps-row">
+        <div class="step"><span class="step-num">1</span>เลือกเมนูที่ต้องการจากด้านซ้าย</div>
+        <div class="step"><span class="step-num">2</span>เลือกชื่อตัวเองจากรายชื่อสมาชิกตอนโพสต์/บันทึก</div>
+        <div class="step"><span class="step-num">3</span>ใช้งานร่วมกับทีมได้เลย ไม่ต้องสมัครสมาชิก</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">🔗</span>มีอะไรในนี้บ้าง</h2>
+      <div class="quick-links-grid">
+        <button class="quick-link-card" data-tab="feed">
+          <span class="quick-link-icon">💬</span>
+          <span class="quick-link-title">ฟีด</span>
+          <span class="quick-link-desc">พูดคุย อัปเดต แชร์ไอเดียกับทีม</span>
+        </button>
+        <button class="quick-link-card" data-tab="resources">
+          <span class="quick-link-icon">📚</span>
+          <span class="quick-link-title">คลังความรู้</span>
+          <span class="quick-link-desc">สคริปต์ขาย รับมือลูกค้า เอกสารที่ทีมเขียนไว้</span>
+        </button>
+        <button class="quick-link-card" data-tab="events">
+          <span class="quick-link-icon">📅</span>
+          <span class="quick-link-title">นัดหมาย</span>
+          <span class="quick-link-desc">นัดลูกค้า ประชุมทีม กิจกรรมที่จะถึง</span>
+        </button>
+        <button class="quick-link-card" data-tab="commission">
+          <span class="quick-link-icon">🧮</span>
+          <span class="quick-link-title">คำนวณคอมมิชชั่น</span>
+          <span class="quick-link-desc">กรอกเบี้ยและอัตราคอมฯ ดูรายได้สุทธิทันที</span>
+        </button>
+        <button class="quick-link-card" data-tab="mdrt">
+          <span class="quick-link-icon">🏆</span>
+          <span class="quick-link-title">MDRT Tracking</span>
+          <span class="quick-link-desc">ตั้งเป้า ดูยอดสะสม และยอดที่ต้องทำต่อเดือน</span>
+        </button>
+        <button class="quick-link-card" data-tab="sa-asoke">
+          <span class="quick-link-icon">🏢</span>
+          <span class="quick-link-title">SA Asoke</span>
+          <span class="quick-link-desc">สรุปเบี้ยรวมโครงการ Smart Agent Asoke</span>
+        </button>
       </div>
     </div>
   </section>
@@ -148,6 +225,85 @@
       <h2><span class="h2-icon">🗂️</span>ผ่านมาแล้ว</h2>
       <div id="events-past-list"></div>
       <div class="empty" id="events-past-empty" style="display:none">ยังไม่มีนัดหมายที่ผ่านมา</div>
+    </div>
+  </section>
+
+  <section id="tab-commission" style="display:none">
+    <div class="calc-layout">
+      <div class="card">
+        <h2><span class="h2-icon">📄</span>ข้อมูลกรมธรรม์</h2>
+        <div class="row2">
+          <div class="field">
+            <label>เบี้ยประกัน (บาท)</label>
+            <input type="number" id="cm-premium" min="0" value="0">
+          </div>
+          <div class="field">
+            <label>อัตราคอมมิชชั่น (%)</label>
+            <input type="number" id="cm-rate" min="0" max="100" step="0.1" value="0">
+          </div>
+        </div>
+        <div class="field">
+          <label>หักภาษี ณ ที่จ่าย</label>
+          <select id="cm-tax">
+            <option value="5">5%</option>
+            <option value="10">10%</option>
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+            <option value="25">25%</option>
+            <option value="30">30%</option>
+            <option value="35">35%</option>
+          </select>
+        </div>
+        <div class="hint">กรอกอัตราคอมมิชชั่นของแบบประกันที่ขายเอง (ดูได้จากเอกสารบริษัท) เครื่องมือนี้แค่ช่วยคำนวณเลข ไม่มีตารางอัตราแบบประกันในตัว</div>
+      </div>
+
+      <div class="hero-panel-dark">
+        <h3>สรุปผลประโยชน์</h3>
+        <div class="dark-row"><span>คอมมิชชั่น</span><span id="cm-commission">฿0</span></div>
+        <div class="dark-row"><span>รวมรายได้ก่อนหักภาษี</span><span id="cm-gross">฿0</span></div>
+        <div class="dark-row"><span>หักภาษี ณ ที่จ่าย</span><span id="cm-tax-amount">-฿0</span></div>
+        <div class="dark-net-pay">
+          <span class="dark-net-label">รายได้สุทธิ (NET PAY)</span>
+          <span class="dark-net-value" id="cm-net">฿0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-mdrt" style="display:none">
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label>สมาชิก</label>
+          <select id="md-member"></select>
+        </div>
+        <div class="field">
+          <label>ปี</label>
+          <input type="number" id="md-year" min="2020">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>เป้าหมาย MDRT (บาท)</label>
+          <input type="number" id="md-target" min="0">
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <button class="primary" id="md-save-target">บันทึกเป้าหมาย</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-panel-dark">
+      <h3>ความคืบหน้า</h3>
+      <div class="dark-row"><span>ยอดสะสม (Total FYP)</span><span id="md-total">฿0</span></div>
+      <div class="bar-track dark-bar-track"><div class="bar-fill" id="md-progress-bar" style="width:0%"></div></div>
+      <div class="dark-row"><span>ยอดที่ขาดอีก (Gap)</span><span id="md-gap">฿0</span></div>
+      <div class="dark-row"><span id="md-per-month-label">ต้องทำยอดเพิ่ม/เดือน</span><span id="md-per-month">฿0</span></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="h2-icon">📅</span>บันทึกยอดขายรายเดือน</h2>
+      <div class="month-grid" id="md-month-grid"></div>
     </div>
   </section>
 

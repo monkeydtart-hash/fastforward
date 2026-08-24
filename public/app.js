@@ -16,23 +16,51 @@ async function api(path, opts) {
   return res.json();
 }
 
-// ---------- Tabs ----------
-const tabButtons = document.querySelectorAll('nav.tabs button');
-tabButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    tabButtons.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
-    document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
-    loadTab(btn.dataset.tab);
-  });
+// ---------- Sidebar navigation ----------
+const navItems = document.querySelectorAll('.nav-item[data-tab]');
+
+function switchTab(tab) {
+  navItems.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+
+  const activeBtn = document.querySelector('.nav-item[data-tab="' + tab + '"]');
+  const group = activeBtn && activeBtn.closest('.nav-group');
+  if (group) group.classList.remove('collapsed');
+
+  closeSidebar();
+  loadTab(tab);
+}
+
+navItems.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+document.querySelectorAll('.nav-group-toggle').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.nav-group').classList.toggle('collapsed'));
 });
+
+document.querySelectorAll('.quick-link-card[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarBackdrop.classList.remove('show');
+}
+document.getElementById('sidebar-toggle').addEventListener('click', () => {
+  sidebar.classList.add('open');
+  sidebarBackdrop.classList.add('show');
+});
+sidebarBackdrop.addEventListener('click', closeSidebar);
 
 function loadTab(tab) {
   if (tab === 'dashboard') loadDashboard();
   if (tab === 'feed') loadFeed();
   if (tab === 'resources') loadResources();
   if (tab === 'events') loadEvents();
+  if (tab === 'commission') loadCommission();
+  if (tab === 'mdrt') loadMdrt();
   if (tab === 'sa-asoke') loadSaAsoke();
   if (tab === 'shirts') loadShirts();
   if (tab === 'members') loadMembers();
@@ -251,6 +279,122 @@ document.getElementById('form-event').addEventListener('submit', async (e) => {
   document.getElementById('ev-date').value = new Date().toISOString().slice(0, 10);
   loadEvents();
 });
+
+// ---------- Commission calculator ----------
+function formatMoney(n) {
+  return '฿' + Math.round(n).toLocaleString();
+}
+
+let commissionWired = false;
+function loadCommission() {
+  if (commissionWired) { calcCommission(); return; }
+  commissionWired = true;
+  ['cm-premium', 'cm-rate', 'cm-tax'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calcCommission);
+  });
+  document.getElementById('cm-tax').addEventListener('change', calcCommission);
+  calcCommission();
+}
+
+function calcCommission() {
+  const premium = Number(document.getElementById('cm-premium').value) || 0;
+  const rate = Number(document.getElementById('cm-rate').value) || 0;
+  const taxPct = Number(document.getElementById('cm-tax').value) || 0;
+
+  const commission = premium * (rate / 100);
+  const tax = commission * (taxPct / 100);
+  const net = commission - tax;
+
+  document.getElementById('cm-commission').textContent = formatMoney(commission);
+  document.getElementById('cm-gross').textContent = formatMoney(commission);
+  document.getElementById('cm-tax-amount').textContent = '-' + formatMoney(tax);
+  document.getElementById('cm-net').textContent = formatMoney(net);
+}
+
+// ---------- MDRT tracking ----------
+const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+let mdrtWired = false;
+
+async function loadMdrt() {
+  await fetchMembers();
+  const memberSelect = document.getElementById('md-member');
+  const prevMember = memberSelect.value;
+  fillMemberSelect(memberSelect);
+  if (prevMember) memberSelect.value = prevMember;
+
+  const yearInput = document.getElementById('md-year');
+  if (!yearInput.value) yearInput.value = new Date().getFullYear();
+
+  if (!mdrtWired) {
+    mdrtWired = true;
+    memberSelect.addEventListener('change', refreshMdrt);
+    yearInput.addEventListener('change', refreshMdrt);
+    document.getElementById('md-save-target').addEventListener('click', saveMdrtTarget);
+  }
+
+  await refreshMdrt();
+}
+
+async function refreshMdrt() {
+  const member = document.getElementById('md-member').value;
+  const year = document.getElementById('md-year').value;
+  if (!member || !year) return;
+
+  const data = await api('/mdrt?member=' + encodeURIComponent(member) + '&year=' + encodeURIComponent(year));
+  document.getElementById('md-target').value = data.target || '';
+
+  const total = Object.values(data.entries).reduce((sum, v) => sum + v, 0);
+  const target = data.target || 0;
+  const gap = Math.max(0, target - total);
+  const pct = target > 0 ? Math.min(100, Math.round((total / target) * 100)) : 0;
+
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const monthsRemaining = Number(year) === currentYear ? Math.max(1, 13 - currentMonth) : 12;
+
+  document.getElementById('md-total').textContent = formatMoney(total);
+  document.getElementById('md-progress-bar').style.width = pct + '%';
+  document.getElementById('md-gap').textContent = formatMoney(gap);
+  document.getElementById('md-per-month-label').textContent = gap > 0
+    ? `ต้องทำยอดเพิ่ม/เดือน (เหลือ ${monthsRemaining} เดือน)`
+    : 'ต้องทำยอดเพิ่ม/เดือน';
+  document.getElementById('md-per-month').textContent = formatMoney(gap > 0 ? gap / monthsRemaining : 0);
+
+  const grid = document.getElementById('md-month-grid');
+  grid.innerHTML = MONTH_NAMES.map((name, i) => {
+    const month = i + 1;
+    const value = data.entries[month] || '';
+    return `
+      <div class="month-cell">
+        <label>${name}</label>
+        <input type="number" min="0" class="md-month-input" data-month="${month}" value="${value}">
+      </div>
+    `;
+  }).join('');
+  grid.querySelectorAll('.md-month-input').forEach(el => {
+    el.addEventListener('change', saveMdrtEntry);
+  });
+}
+
+async function saveMdrtTarget() {
+  const member = document.getElementById('md-member').value;
+  const year = document.getElementById('md-year').value;
+  const targetAmount = Number(document.getElementById('md-target').value) || 0;
+  if (!member || !year) { toast('เลือกสมาชิกและปีก่อนนะครับ'); return; }
+  await api('/mdrt/target', { method: 'POST', body: JSON.stringify({ member, year: Number(year), targetAmount }) });
+  toast('บันทึกเป้าหมายแล้ว');
+  refreshMdrt();
+}
+
+async function saveMdrtEntry(e) {
+  const member = document.getElementById('md-member').value;
+  const year = document.getElementById('md-year').value;
+  const month = Number(e.target.dataset.month);
+  const fyp = Number(e.target.value) || 0;
+  await api('/mdrt/entry', { method: 'POST', body: JSON.stringify({ member, year: Number(year), month, fyp }) });
+  toast('บันทึกยอดเดือน ' + MONTH_NAMES[month - 1] + ' แล้ว');
+  refreshMdrt();
+}
 
 // ---------- SA Asoke premium summary ----------
 let saAsokeCache = [];

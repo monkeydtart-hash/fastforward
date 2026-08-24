@@ -32,6 +32,25 @@ create table if not exists events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists mdrt_targets (
+  id serial primary key,
+  member text not null,
+  year integer not null,
+  target_amount numeric not null default 0,
+  created_at timestamptz not null default now(),
+  unique (member, year)
+);
+
+create table if not exists mdrt_entries (
+  id serial primary key,
+  member text not null,
+  year integer not null,
+  month integer not null check (month between 1 and 12),
+  fyp numeric not null default 0,
+  created_at timestamptz not null default now(),
+  unique (member, year, month)
+);
+
 insert into members (name, role, phone)
 select v.name, v.role, v.phone
 from (values

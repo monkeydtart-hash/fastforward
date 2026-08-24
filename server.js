@@ -230,6 +230,48 @@ app.delete('/api/sa-asoke/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- MDRT tracking ----
+app.get('/api/mdrt', async (req, res) => {
+  const { member, year } = req.query;
+  if (!member || !year) return res.status(400).json({ error: 'member and year required' });
+  const [targetRes, entriesRes] = await Promise.all([
+    pool.query('select * from mdrt_targets where member = $1 and year = $2', [member, year]),
+    pool.query('select * from mdrt_entries where member = $1 and year = $2', [member, year])
+  ]);
+  const entries = {};
+  for (const r of entriesRes.rows) entries[r.month] = Number(r.fyp);
+  res.json({
+    target: targetRes.rows[0] ? Number(targetRes.rows[0].target_amount) : 0,
+    entries
+  });
+});
+
+app.post('/api/mdrt/target', async (req, res) => {
+  const { member, year, targetAmount } = req.body;
+  if (!member || !year || typeof targetAmount !== 'number') {
+    return res.status(400).json({ error: 'member, year and numeric targetAmount required' });
+  }
+  await pool.query(
+    `insert into mdrt_targets (member, year, target_amount) values ($1, $2, $3)
+     on conflict (member, year) do update set target_amount = excluded.target_amount`,
+    [member, year, targetAmount]
+  );
+  res.json({ ok: true });
+});
+
+app.post('/api/mdrt/entry', async (req, res) => {
+  const { member, year, month, fyp } = req.body;
+  if (!member || !year || !month || typeof fyp !== 'number') {
+    return res.status(400).json({ error: 'member, year, month and numeric fyp required' });
+  }
+  await pool.query(
+    `insert into mdrt_entries (member, year, month, fyp) values ($1, $2, $3, $4)
+     on conflict (member, year, month) do update set fyp = excluded.fyp`,
+    [member, year, month, fyp]
+  );
+  res.json({ ok: true });
+});
+
 // ---- LINE webhook: party fee commands from the LINE group ----
 function verifyLineSignature(req) {
   const signature = req.get('x-line-signature');
