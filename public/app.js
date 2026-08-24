@@ -287,6 +287,7 @@ function formatMoney(n) {
 
 let commissionWired = false;
 let cmSelectedPlan = null;
+let cmCurrentComPlus = null;
 
 function fillPlanSelect() {
   const select = document.getElementById('cm-plan');
@@ -331,6 +332,7 @@ function onCommissionPlanChange() {
 
   if (idx === '') {
     cmSelectedPlan = null;
+    cmCurrentComPlus = null;
     detailRow.style.display = 'none';
     badges.style.display = 'none';
     bonusHint.style.display = 'none';
@@ -367,21 +369,21 @@ function updateCommissionFromPlan() {
   const rate = tier[year];
 
   document.getElementById('cm-rate').value = rate;
+  cmCurrentComPlus = tier.comPlus;
 
   let badgeHtml = `<span class="badge">พิกัดอายุรับประกัน: ${escapeHtml(tier.ageRange)}</span>`;
   if (tier.participation != null) {
     badgeHtml += `<span class="badge badge-good">นับผลงาน: ${tier.participation}%</span>`;
   }
   badgeHtml += `<span class="badge">คอมหลัก: ${rate}%</span>`;
-  let hasBonus = false;
+  let hasLaBonus = false;
   if (tier.comPlus != null) {
     const note = tier.comPlusNote ? ` (${escapeHtml(tier.comPlusNote)})` : '';
     badgeHtml += `<span class="badge badge-muted">Com+: ${tier.comPlus}%${note}</span>`;
-    hasBonus = true;
   }
   if (tier.laBonus != null) {
     badgeHtml += `<span class="badge badge-muted">LA Bonus: ${tier.laBonus}%</span>`;
-    hasBonus = true;
+    hasLaBonus = true;
   }
   if (tier.note) {
     badgeHtml += `<span class="badge badge-muted">${escapeHtml(tier.note)}</span>`;
@@ -390,7 +392,7 @@ function updateCommissionFromPlan() {
   const badges = document.getElementById('cm-badges');
   badges.innerHTML = badgeHtml;
   badges.style.display = '';
-  document.getElementById('cm-bonus-hint').style.display = hasBonus ? '' : 'none';
+  document.getElementById('cm-bonus-hint').style.display = hasLaBonus ? '' : 'none';
 
   calcCommission();
 }
@@ -401,11 +403,17 @@ function calcCommission() {
   const taxPct = Number(document.getElementById('cm-tax').value) || 0;
 
   const commission = premium * (rate / 100);
-  const tax = commission * (taxPct / 100);
-  const net = commission - tax;
+  const comPlusAmount = cmCurrentComPlus != null ? premium * (cmCurrentComPlus / 100) : 0;
+  const gross = commission + comPlusAmount;
+  const tax = gross * (taxPct / 100);
+  const net = gross - tax;
+
+  const comPlusRow = document.getElementById('cm-complus-row');
+  comPlusRow.style.display = cmCurrentComPlus != null ? '' : 'none';
+  document.getElementById('cm-complus').textContent = formatMoney(comPlusAmount);
 
   document.getElementById('cm-commission').textContent = formatMoney(commission);
-  document.getElementById('cm-gross').textContent = formatMoney(commission);
+  document.getElementById('cm-gross').textContent = formatMoney(gross);
   document.getElementById('cm-tax-amount').textContent = '-' + formatMoney(tax);
   document.getElementById('cm-net').textContent = formatMoney(net);
 }
