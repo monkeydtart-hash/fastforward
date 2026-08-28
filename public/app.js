@@ -657,54 +657,6 @@ function formatBaht(n) {
   return '฿' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const SA_ASOKE_CAT_SLOTS = [
-  { cssVar: '--series-blue', hex: '#2a78d6' },
-  { cssVar: '--cat-2', hex: '#eb6834' },
-  { cssVar: '--cat-3', hex: '#1baf7a' },
-  { cssVar: '--cat-4', hex: '#eda100' },
-  { cssVar: '--cat-5', hex: '#e87ba4' },
-  { cssVar: '--cat-6', hex: '#008300' },
-  { cssVar: '--cat-7', hex: '#4a3aa7' },
-  { cssVar: '--cat-8', hex: '#e34948' }
-];
-
-function relativeLuminance(hex) {
-  const c = hex.replace('#', '');
-  const [r, g, b] = [0, 2, 4].map(i => parseInt(c.substr(i, 2), 16) / 255);
-  const lin = v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-}
-
-function groupSaAsoke(entries) {
-  const map = new Map();
-  for (const e of entries) {
-    const key = (e.group || '').trim() || 'ไม่ระบุ';
-    if (!map.has(key)) map.set(key, { group: key, total: 0, count: 0 });
-    const g = map.get(key);
-    g.total += e.premium;
-    g.count += 1;
-  }
-  return Array.from(map.values());
-}
-
-function assignGroupSlots(groups) {
-  const stableOrder = [...groups].sort((a, b) => {
-    const an = Number(a.group), bn = Number(b.group);
-    const aNum = a.group !== 'ไม่ระบุ' && !isNaN(an);
-    const bNum = b.group !== 'ไม่ระบุ' && !isNaN(bn);
-    if (aNum && bNum) return an - bn;
-    if (aNum) return -1;
-    if (bNum) return 1;
-    return a.group.localeCompare(b.group, 'th');
-  });
-  const maxNamed = SA_ASOKE_CAT_SLOTS.length - 1; // last slot reserved for "อื่นๆ" overflow
-  const slotByGroup = {};
-  stableOrder.forEach((g, i) => {
-    slotByGroup[g.group] = SA_ASOKE_CAT_SLOTS[Math.min(i, maxNamed)];
-  });
-  return slotByGroup;
-}
-
 async function loadSaAsoke() {
   saAsokeEditingId = null;
   const data = await api('/sa-asoke');
@@ -712,70 +664,9 @@ async function loadSaAsoke() {
   renderSaAsoke(data.total);
 }
 
-function renderSaAsokeGroups(total) {
-  const groups = groupSaAsoke(saAsokeCache);
-  const slotByGroup = assignGroupSlots(groups);
-
-  // ---- Magnitude bar list (sequential blue, sorted high to low) ----
-  const barsBox = document.getElementById('sa-asoke-group-bars');
-  const groupEmpty = document.getElementById('sa-asoke-group-empty');
-  const groupTbody = document.getElementById('sa-asoke-group-tbody');
-  if (!groups.length) {
-    barsBox.innerHTML = '';
-    groupTbody.innerHTML = '';
-    groupEmpty.style.display = 'block';
-    document.getElementById('sa-asoke-stack-bar').innerHTML = '';
-    document.getElementById('sa-asoke-stack-legend').innerHTML = '';
-    return;
-  }
-  groupEmpty.style.display = 'none';
-
-  const byTotalDesc = [...groups].sort((a, b) => b.total - a.total);
-  const maxTotal = Math.max(1, ...byTotalDesc.map(g => g.total));
-  barsBox.innerHTML = byTotalDesc.map((g, i) => {
-    const pct = Math.max(3, Math.round((g.total / maxTotal) * 100));
-    return `
-      <div class="leaderboard-row">
-        <div class="rank ${i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : ''}">${i + 1}</div>
-        <div class="name-bar">
-          <div class="name">กลุ่ม ${escapeHtml(g.group)} <span class="role">${g.count} รายการ</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(${slotByGroup[g.group].cssVar})"></div></div>
-        </div>
-        <div class="points">${formatBaht(g.total)}</div>
-      </div>
-    `;
-  }).join('');
-
-  groupTbody.innerHTML = byTotalDesc.map(g => `
-    <tr>
-      <td>กลุ่ม ${escapeHtml(g.group)}</td>
-      <td>${g.count}</td>
-      <td>${formatBaht(g.total)}</td>
-      <td>${total > 0 ? ((g.total / total) * 100).toFixed(1) : '0.0'}%</td>
-    </tr>
-  `).join('');
-
-  // ---- Composition stacked bar (categorical, part-to-whole) ----
-  const stackBox = document.getElementById('sa-asoke-stack-bar');
-  const legendBox = document.getElementById('sa-asoke-stack-legend');
-  stackBox.innerHTML = byTotalDesc.map(g => {
-    const pct = total > 0 ? (g.total / total) * 100 : 0;
-    const slot = slotByGroup[g.group];
-    const textColor = relativeLuminance(slot.hex) > 0.5 ? '#0b0b0b' : '#ffffff';
-    const label = pct >= 8 ? `${pct.toFixed(0)}%` : '';
-    return `<div class="stack-segment" style="flex:0 1 ${pct}%;background:var(${slot.cssVar});color:${textColor}" title="กลุ่ม ${escapeAttr(g.group)}: ${formatBaht(g.total)} (${pct.toFixed(1)}%)">${label}</div>`;
-  }).join('');
-
-  legendBox.innerHTML = byTotalDesc.map(g => {
-    const pct = total > 0 ? (g.total / total) * 100 : 0;
-    return `<span class="legend-item"><span class="legend-swatch" style="background:var(${slotByGroup[g.group].cssVar})"></span>กลุ่ม ${escapeHtml(g.group)} — ${formatBaht(g.total)} (${pct.toFixed(1)}%)</span>`;
-  }).join('');
-}
-
 function renderSaAsoke(total) {
   document.getElementById('sa-asoke-total').textContent = formatBaht(total);
   document.getElementById('sa-asoke-foot-total').textContent = formatBaht(total);
-  renderSaAsokeGroups(total);
 
   const tbody = document.getElementById('sa-asoke-tbody');
   const empty = document.getElementById('sa-asoke-empty');
