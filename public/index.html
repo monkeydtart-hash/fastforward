@@ -345,12 +345,19 @@
     <div class="card no-print">
       <div class="section-header">
         <h2 style="margin:0"><span class="h2-icon">🏢</span>สรุปเบี้ยรวมทั้งหมดโครงการ SA Asoke</h2>
-        <button class="ghost" id="sa-asoke-print">🖨️ บันทึกเป็น PDF</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ghost" id="sa-asoke-print">🖨️ บันทึกเป็น PDF</button>
+          <button class="ghost" id="sa-asoke-image">🖼️ บันทึกเป็นรูปภาพ</button>
+        </div>
       </div>
       <div class="stat-hero">
         <div class="value-row">
           <span class="value" id="sa-asoke-total">฿0.00</span>
           <span class="target">เบี้ยรวมทั้งหมด</span>
+        </div>
+        <div class="value-row">
+          <span class="value" id="sa-asoke-policy-count">0</span>
+          <span class="target">กรมธรรม์ทั้งหมด</span>
         </div>
       </div>
     </div>
@@ -370,7 +377,7 @@
           <tbody id="sa-asoke-tbody"></tbody>
           <tfoot>
             <tr>
-              <th>รวม</th>
+              <th id="sa-asoke-foot-label">รวม</th>
               <th></th>
               <th id="sa-asoke-foot-total">฿0.00</th>
               <th class="no-print"></th>

@@ -666,7 +666,9 @@ async function loadSaAsoke() {
 
 function renderSaAsoke(total) {
   document.getElementById('sa-asoke-total').textContent = formatBaht(total);
+  document.getElementById('sa-asoke-policy-count').textContent = saAsokeCache.length.toLocaleString();
   document.getElementById('sa-asoke-foot-total').textContent = formatBaht(total);
+  document.getElementById('sa-asoke-foot-label').textContent = `รวม (${saAsokeCache.length} กรมธรรม์)`;
 
   const tbody = document.getElementById('sa-asoke-tbody');
   const empty = document.getElementById('sa-asoke-empty');
@@ -765,6 +767,113 @@ document.getElementById('sa-asoke-print').addEventListener('click', () => {
 window.addEventListener('afterprint', () => {
   document.body.classList.remove('printing-sa-asoke');
 });
+
+function truncateToWidth(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) {
+    t = t.slice(0, -1);
+  }
+  return t + '…';
+}
+
+function exportSaAsokeImage() {
+  const rows = [...saAsokeCache].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  const total = rows.reduce((sum, e) => sum + e.premium, 0);
+
+  const pad = 24;
+  const colName = 320;
+  const colGroup = 110;
+  const colPremium = 190;
+  const width = pad * 2 + colName + colGroup + colPremium;
+  const titleH = 56;
+  const headerH = 40;
+  const rowH = 32;
+  const footerH = 40;
+  const height = pad * 2 + titleH + headerH + Math.max(1, rows.length) * rowH + footerH;
+
+  const canvas = document.createElement('canvas');
+  const scale = 2;
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#0b0b0b';
+  ctx.font = '700 20px Sarabun, "Segoe UI", sans-serif';
+  ctx.fillText('สรุปเบี้ยรวมทั้งหมดโครงการ SA Asoke', pad, pad + titleH / 2);
+
+  let y = pad + titleH;
+  const xName = pad + 12;
+  const xGroup = pad + colName + 12;
+  const xPremium = pad + colName + colGroup + colPremium - 12;
+
+  ctx.fillStyle = '#2a78d6';
+  ctx.fillRect(pad, y, width - pad * 2, headerH);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '600 15px Sarabun, "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('ชื่อ', xName, y + headerH / 2);
+  ctx.fillText('กลุ่ม', xGroup, y + headerH / 2);
+  ctx.textAlign = 'right';
+  ctx.fillText('เบี้ย', xPremium, y + headerH / 2);
+  y += headerH;
+
+  ctx.font = '15px Sarabun, "Segoe UI", sans-serif';
+  if (!rows.length) {
+    ctx.fillStyle = '#898781';
+    ctx.textAlign = 'left';
+    ctx.fillText('ยังไม่มีรายการเบี้ย', xName, y + rowH / 2);
+    y += rowH;
+  }
+  rows.forEach((e, i) => {
+    if (i % 2 === 1) {
+      ctx.fillStyle = '#f5f4f1';
+      ctx.fillRect(pad, y, width - pad * 2, rowH);
+    }
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillText(truncateToWidth(ctx, e.name, colName - 24), xName, y + rowH / 2);
+    ctx.fillStyle = '#52514e';
+    ctx.fillText(truncateToWidth(ctx, e.group || '-', colGroup - 24), xGroup, y + rowH / 2);
+    ctx.fillStyle = '#0b0b0b';
+    ctx.textAlign = 'right';
+    ctx.fillText(formatBaht(e.premium), xPremium, y + rowH / 2);
+    y += rowH;
+    ctx.strokeStyle = 'rgba(11,11,11,0.10)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(width - pad, y);
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = '#f0efe9';
+  ctx.fillRect(pad, y, width - pad * 2, footerH);
+  ctx.fillStyle = '#0b0b0b';
+  ctx.font = '700 16px Sarabun, "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`รวม (${rows.length} กรมธรรม์)`, xName, y + footerH / 2);
+  ctx.textAlign = 'right';
+  ctx.fillText(formatBaht(total), xPremium, y + footerH / 2);
+
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SA-Asoke-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+}
+
+document.getElementById('sa-asoke-image').addEventListener('click', exportSaAsokeImage);
 
 // ---------- Shirts (ค่าเสื้อ) ----------
 async function loadShirts() {
