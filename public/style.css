@@ -567,6 +567,34 @@ table.data tbody tr:last-child td {
   color: var(--text-muted);
 }
 
+.sa-rider-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.sa-rider-line button {
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.sa-rider-add-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.sa-new-rider-row {
+  margin-top: 8px;
+}
+
 .toast {
   position: fixed;
   bottom: 20px;

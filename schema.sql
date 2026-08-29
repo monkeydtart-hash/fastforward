@@ -288,6 +288,14 @@ from (values
 ) as v(category, product_code, product_name, age_range, condition_label, year1_rate, other_years_note, production_pct, com_plus, com_plus_note, la_bonus)
 where not exists (select 1 from commission_rate_rules);
 
+create table if not exists sa_asoke_premium_riders (
+  id serial primary key,
+  premium_id integer not null references sa_asoke_premiums(id) on delete cascade,
+  commission_rate_rule_id integer references commission_rate_rules(id),
+  product_type text not null default '',
+  premium numeric not null default 0
+);
+
 create table if not exists sa_asoke_recruits (
   id serial primary key,
   recruiter_name text not null,

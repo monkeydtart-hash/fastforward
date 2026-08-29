@@ -63,7 +63,18 @@ function mapSaAsokePremium(r) {
     premium: Number(r.premium),
     productType: r.product_type,
     commissionRateRuleId: r.commission_rate_rule_id ? String(r.commission_rate_rule_id) : null,
+    riders: [],
     createdAt: r.created_at.toISOString()
+  };
+}
+
+function mapSaAsokeRider(r) {
+  return {
+    id: String(r.id),
+    premiumId: String(r.premium_id),
+    commissionRateRuleId: r.commission_rate_rule_id ? String(r.commission_rate_rule_id) : null,
+    productType: r.product_type,
+    premium: Number(r.premium)
   };
 }
 
@@ -229,15 +240,40 @@ app.patch('/api/shirts/:id', async (req, res) => {
 });
 
 // ---- SA Asoke premium summary ----
+async function attachRiders(entries) {
+  if (!entries.length) return entries;
+  const ids = entries.map(e => Number(e.id));
+  const { rows } = await pool.query('select * from sa_asoke_premium_riders where premium_id = any($1) order by id', [ids]);
+  const byPremiumId = new Map();
+  rows.forEach(r => {
+    const rider = mapSaAsokeRider(r);
+    if (!byPremiumId.has(rider.premiumId)) byPremiumId.set(rider.premiumId, []);
+    byPremiumId.get(rider.premiumId).push(rider);
+  });
+  entries.forEach(e => { e.riders = byPremiumId.get(e.id) || []; });
+  return entries;
+}
+
+async function replaceRiders(premiumId, riders) {
+  await pool.query('delete from sa_asoke_premium_riders where premium_id = $1', [premiumId]);
+  for (const r of riders || []) {
+    if (typeof r.premium !== 'number') continue;
+    await pool.query(
+      'insert into sa_asoke_premium_riders (premium_id, commission_rate_rule_id, product_type, premium) values ($1, $2, $3, $4)',
+      [premiumId, r.commissionRateRuleId || null, r.productType || '', r.premium]
+    );
+  }
+}
+
 app.get('/api/sa-asoke', async (req, res) => {
   const { rows } = await pool.query('select * from sa_asoke_premiums order by id');
-  const entries = rows.map(mapSaAsokePremium);
-  const total = entries.reduce((sum, e) => sum + e.premium, 0);
+  const entries = await attachRiders(rows.map(mapSaAsokePremium));
+  const total = entries.reduce((sum, e) => sum + e.premium + e.riders.reduce((s, r) => s + r.premium, 0), 0);
   res.json({ entries, total });
 });
 
 app.post('/api/sa-asoke', async (req, res) => {
-  const { name, group, premium, productType, commissionRateRuleId } = req.body;
+  const { name, group, premium, productType, commissionRateRuleId, riders } = req.body;
   if (!name || typeof premium !== 'number') {
     return res.status(400).json({ error: 'name and numeric premium required' });
   }
@@ -245,11 +281,14 @@ app.post('/api/sa-asoke', async (req, res) => {
     'insert into sa_asoke_premiums (name, group_no, premium, product_type, commission_rate_rule_id) values ($1, $2, $3, $4, $5) returning *',
     [name, group || '', premium, productType || '', commissionRateRuleId || null]
   );
-  res.json(mapSaAsokePremium(rows[0]));
+  const entry = mapSaAsokePremium(rows[0]);
+  await replaceRiders(entry.id, riders);
+  const [saved] = await attachRiders([entry]);
+  res.json(saved);
 });
 
 app.put('/api/sa-asoke/:id', async (req, res) => {
-  const { name, group, premium, productType, commissionRateRuleId } = req.body;
+  const { name, group, premium, productType, commissionRateRuleId, riders } = req.body;
   if (!name || typeof premium !== 'number') {
     return res.status(400).json({ error: 'name and numeric premium required' });
   }
@@ -258,11 +297,31 @@ app.put('/api/sa-asoke/:id', async (req, res) => {
     [name, group || '', premium, productType || '', commissionRateRuleId || null, req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
-  res.json(mapSaAsokePremium(rows[0]));
+  const entry = mapSaAsokePremium(rows[0]);
+  if (riders !== undefined) await replaceRiders(entry.id, riders);
+  const [saved] = await attachRiders([entry]);
+  res.json(saved);
 });
 
 app.delete('/api/sa-asoke/:id', async (req, res) => {
   await pool.query('delete from sa_asoke_premiums where id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+app.post('/api/sa-asoke/:id/riders', async (req, res) => {
+  const { commissionRateRuleId, productType, premium } = req.body;
+  if (typeof premium !== 'number') {
+    return res.status(400).json({ error: 'numeric premium required' });
+  }
+  const { rows } = await pool.query(
+    'insert into sa_asoke_premium_riders (premium_id, commission_rate_rule_id, product_type, premium) values ($1, $2, $3, $4) returning *',
+    [req.params.id, commissionRateRuleId || null, productType || '', premium]
+  );
+  res.json(mapSaAsokeRider(rows[0]));
+});
+
+app.delete('/api/sa-asoke/riders/:riderId', async (req, res) => {
+  await pool.query('delete from sa_asoke_premium_riders where id = $1', [req.params.riderId]);
   res.json({ ok: true });
 });
 
@@ -345,14 +404,20 @@ app.delete('/api/sa-asoke/recruits/:id', async (req, res) => {
 
 // ---- SA Asoke awards summary ----
 app.get('/api/sa-asoke/awards', async (req, res) => {
-  const [premiumsRes, rulesRes, recruitsRes] = await Promise.all([
+  const [premiumsRes, rulesRes, recruitsRes, ridersRes] = await Promise.all([
     pool.query('select * from sa_asoke_premiums order by id'),
     pool.query('select * from commission_rate_rules'),
-    pool.query('select * from sa_asoke_recruits order by id')
+    pool.query('select * from sa_asoke_recruits order by id'),
+    pool.query('select * from sa_asoke_premium_riders')
   ]);
 
   const rateById = new Map(rulesRes.rows.map(r => [String(r.id), r.year1_rate === null ? null : Number(r.year1_rate)]));
   const premiums = premiumsRes.rows.map(mapSaAsokePremium);
+  const ridersByPremiumId = new Map();
+  ridersRes.rows.map(mapSaAsokeRider).forEach(r => {
+    if (!ridersByPremiumId.has(r.premiumId)) ridersByPremiumId.set(r.premiumId, []);
+    ridersByPremiumId.get(r.premiumId).push(r);
+  });
 
   const byPerson = new Map();
   const ensurePerson = (name) => {
@@ -362,15 +427,23 @@ app.get('/api/sa-asoke/awards', async (req, res) => {
     return byPerson.get(name);
   };
 
+  const addCommission = (person, premium, ruleId) => {
+    const rate = ruleId ? rateById.get(ruleId) : null;
+    if (rate !== null && rate !== undefined) {
+      person.totalCommission += premium * (rate / 100);
+    } else {
+      person.missingRate = true;
+    }
+  };
+
   for (const p of premiums) {
     const person = ensurePerson(p.name);
     person.caseCount += 1;
     person.totalPremium += p.premium;
-    const rate = p.commissionRateRuleId ? rateById.get(p.commissionRateRuleId) : null;
-    if (rate !== null && rate !== undefined) {
-      person.totalCommission += p.premium * (rate / 100);
-    } else {
-      person.missingRate = true;
+    addCommission(person, p.premium, p.commissionRateRuleId);
+    for (const rider of ridersByPremiumId.get(p.id) || []) {
+      person.totalPremium += rider.premium;
+      addCommission(person, rider.premium, rider.commissionRateRuleId);
     }
   }
 

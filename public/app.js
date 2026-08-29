@@ -652,13 +652,23 @@ async function saveMdrtEntry(e) {
 // ---------- SA Asoke premium summary ----------
 let saAsokeCache = [];
 let saAsokeEditingId = null;
+let saAddingRiderToId = null;
 
 function formatBaht(n) {
   return '฿' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function entryTotal(e) {
+  return e.premium + (e.riders || []).reduce((sum, r) => sum + r.premium, 0);
+}
+
+function grandTotal() {
+  return saAsokeCache.reduce((sum, e) => sum + entryTotal(e), 0);
+}
+
 async function loadSaAsoke() {
   saAsokeEditingId = null;
+  saAddingRiderToId = null;
   const data = await api('/sa-asoke');
   saAsokeCache = data.entries.sort((a, b) => a.name.localeCompare(b.name, 'th'));
   renderSaAsoke(data.total);
@@ -694,12 +704,31 @@ function renderSaAsoke(total) {
         </tr>
       `;
     }
+    const riders = e.riders || [];
+    const riderLines = riders.map(r => `
+      <div class="sa-rider-line">
+        <span>+ ${escapeHtml(r.productType || 'สัญญาเพิ่มเติม')} (${formatBaht(r.premium)})</span>
+        <button type="button" class="ghost no-print" data-del-sa-rider="${r.id}" title="ลบสัญญาเพิ่มเติม">×</button>
+      </div>
+    `).join('');
+    const addRiderBlock = e.id === saAddingRiderToId ? `
+      <div class="sa-rider-add-form no-print">
+        <select class="sa-new-rider-rule" style="max-width:200px">${buildFlatRateOptions(null)}</select>
+        <input type="number" class="sa-new-rider-premium" min="0" step="0.01" placeholder="เบี้ย" style="width:90px">
+        <button type="button" class="ghost" data-save-sa-rider="${e.id}">บันทึก</button>
+        <button type="button" class="ghost" data-cancel-sa-rider="${e.id}">ยกเลิก</button>
+      </div>
+    ` : `<button type="button" class="ghost no-print" data-add-sa-rider="${e.id}" style="margin-top:4px">+ สัญญาเพิ่มเติม</button>`;
     return `
       <tr>
         <td>${escapeHtml(e.name)}</td>
         <td>${escapeHtml(e.group || '-')}</td>
-        <td>${escapeHtml(e.productType || '-')}</td>
-        <td>${formatBaht(e.premium)}</td>
+        <td>
+          <div>${escapeHtml(e.productType || '-')}</div>
+          ${riderLines}
+          ${addRiderBlock}
+        </td>
+        <td>${formatBaht(entryTotal(e))}</td>
         <td class="no-print">
           <button class="ghost" data-edit-sa="${e.id}">แก้ไข</button>
           <button class="ghost" data-del-sa="${e.id}">ลบ</button>
@@ -711,13 +740,13 @@ function renderSaAsoke(total) {
   tbody.querySelectorAll('[data-edit-sa]').forEach(btn => {
     btn.addEventListener('click', () => {
       saAsokeEditingId = btn.dataset.editSa;
-      renderSaAsoke(saAsokeCache.reduce((sum, e) => sum + e.premium, 0));
+      renderSaAsoke(grandTotal());
     });
   });
   tbody.querySelectorAll('[data-cancel-sa]').forEach(btn => {
     btn.addEventListener('click', () => {
       saAsokeEditingId = null;
-      renderSaAsoke(saAsokeCache.reduce((sum, e) => sum + e.premium, 0));
+      renderSaAsoke(grandTotal());
     });
   });
   tbody.querySelectorAll('[data-save-sa]').forEach(btn => {
@@ -746,6 +775,43 @@ function renderSaAsoke(total) {
     btn.addEventListener('click', async () => {
       if (!confirm('ลบรายการนี้?')) return;
       await api('/sa-asoke/' + btn.dataset.delSa, { method: 'DELETE' });
+      loadSaAsoke();
+    });
+  });
+  tbody.querySelectorAll('[data-add-sa-rider]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      saAddingRiderToId = btn.dataset.addSaRider;
+      renderSaAsoke(grandTotal());
+    });
+  });
+  tbody.querySelectorAll('[data-cancel-sa-rider]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      saAddingRiderToId = null;
+      renderSaAsoke(grandTotal());
+    });
+  });
+  tbody.querySelectorAll('[data-save-sa-rider]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('tr');
+      const ruleId = row.querySelector('.sa-new-rider-rule').value || null;
+      const premium = Number(row.querySelector('.sa-new-rider-premium').value);
+      if (!Number.isFinite(premium)) {
+        toast('กรุณากรอกเบี้ยของสัญญาเพิ่มเติมให้ถูกต้อง');
+        return;
+      }
+      const rule = ruleId ? saRateCache.find(r => r.id === ruleId) : null;
+      await api('/sa-asoke/' + btn.dataset.saveSaRider + '/riders', {
+        method: 'POST',
+        body: JSON.stringify({ commissionRateRuleId: ruleId, productType: rule ? productLabel(rule) : '', premium })
+      });
+      toast('เพิ่มสัญญาเพิ่มเติมแล้ว');
+      loadSaAsoke();
+    });
+  });
+  tbody.querySelectorAll('[data-del-sa-rider]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบสัญญาเพิ่มเติมนี้?')) return;
+      await api('/sa-asoke/riders/' + btn.dataset.delSaRider, { method: 'DELETE' });
       loadSaAsoke();
     });
   });
@@ -842,20 +908,45 @@ document.getElementById('sa-product-select').addEventListener('change', updateCo
 document.getElementById('sa-condition-select').addEventListener('change', updateCommissionPreview);
 document.getElementById('sa-premium').addEventListener('input', updateCommissionPreview);
 
+function addRiderRow() {
+  const container = document.getElementById('sa-rider-rows');
+  const row = document.createElement('div');
+  row.className = 'sa-new-rider-row row2';
+  row.innerHTML = `
+    <select class="sa-rider-rule-select">${buildFlatRateOptions(null)}</select>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="number" class="sa-rider-premium-input" min="0" step="0.01" placeholder="เบี้ยสัญญาเพิ่มเติม (บาท)">
+      <button type="button" class="ghost sa-remove-rider-row">ลบ</button>
+    </div>
+  `;
+  row.querySelector('.sa-remove-rider-row').addEventListener('click', () => row.remove());
+  container.appendChild(row);
+}
+
+document.getElementById('sa-add-rider-row').addEventListener('click', addRiderRow);
+
 document.getElementById('form-sa-asoke').addEventListener('submit', async (e) => {
   e.preventDefault();
   const ruleId = getSelectedRuleId();
   const rule = ruleId ? saRateCache.find(r => r.id === ruleId) : null;
+  const riders = [...document.querySelectorAll('#sa-rider-rows .sa-new-rider-row')].map(row => {
+    const riderRuleId = row.querySelector('.sa-rider-rule-select').value || null;
+    const riderRule = riderRuleId ? saRateCache.find(r => r.id === riderRuleId) : null;
+    const riderPremium = Number(row.querySelector('.sa-rider-premium-input').value);
+    return { commissionRateRuleId: riderRuleId, productType: riderRule ? productLabel(riderRule) : '', premium: riderPremium };
+  }).filter(r => Number.isFinite(r.premium) && r.premium > 0);
   const payload = {
     name: document.getElementById('sa-name').value,
     group: document.getElementById('sa-group').value,
     productType: rule ? productLabel(rule) : '',
     commissionRateRuleId: ruleId,
-    premium: Number(document.getElementById('sa-premium').value)
+    premium: Number(document.getElementById('sa-premium').value),
+    riders
   };
   await api('/sa-asoke', { method: 'POST', body: JSON.stringify(payload) });
   toast('เพิ่มรายการแล้ว');
   e.target.reset();
+  document.getElementById('sa-rider-rows').innerHTML = '';
   document.getElementById('sa-condition-select').style.display = 'none';
   document.getElementById('sa-commission-preview').style.display = 'none';
   loadSaAsoke();
@@ -1059,7 +1150,7 @@ document.getElementById('sa-awards-print').addEventListener('click', () => windo
 
 document.getElementById('sa-asoke-print').addEventListener('click', () => {
   saAsokeEditingId = null;
-  renderSaAsoke(saAsokeCache.reduce((sum, e) => sum + e.premium, 0));
+  renderSaAsoke(grandTotal());
   document.body.classList.add('printing-sa-asoke');
   window.print();
 });
@@ -1079,7 +1170,7 @@ function truncateToWidth(ctx, text, maxWidth) {
 
 function exportSaAsokeImage() {
   const rows = [...saAsokeCache].sort((a, b) => a.name.localeCompare(b.name, 'th'));
-  const total = rows.reduce((sum, e) => sum + e.premium, 0);
+  const total = grandTotal();
 
   const pad = 24;
   const colName = 320;
@@ -1142,7 +1233,7 @@ function exportSaAsokeImage() {
     ctx.fillText(truncateToWidth(ctx, e.group || '-', colGroup - 24), xGroup, y + rowH / 2);
     ctx.fillStyle = '#0b0b0b';
     ctx.textAlign = 'right';
-    ctx.fillText(formatBaht(e.premium), xPremium, y + rowH / 2);
+    ctx.fillText(formatBaht(entryTotal(e)), xPremium, y + rowH / 2);
     y += rowH;
     ctx.strokeStyle = 'rgba(11,11,11,0.10)';
     ctx.lineWidth = 1;
