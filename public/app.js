@@ -1190,6 +1190,63 @@ function exportAwardsImage() {
   });
 }
 
+async function exportAwardsExcel() {
+  if (!lastAwardsData) {
+    toast('กรุณากดคำนวณรางวัลก่อน');
+    return;
+  }
+  const awards = lastAwardsData;
+  const premiumData = await api('/sa-asoke');
+
+  const awardLabels = new Map();
+  const addLabel = (name, label) => {
+    if (!awardLabels.has(name)) awardLabels.set(name, []);
+    awardLabels.get(name).push(label);
+  };
+  awards.type1.top.forEach(e => addLabel(e.name, `ประเภท 1 อันดับ ${e.rank} (${formatBaht(e.prize)})`));
+  awards.type1.consolation.forEach(e => addLabel(e.name, `ประเภท 1 ชมเชย (${formatBaht(e.prize)})`));
+  awards.type2.top.forEach(e => addLabel(e.name, `ประเภท 2 อันดับ ${e.rank} (${formatBaht(e.prize)})`));
+  awards.type3.top.forEach(e => addLabel(e.name, `ประเภท 3 อันดับ ${e.rank} (${formatBaht(e.prize)})`));
+
+  const summaryRows = (awards.allPeople || []).map(p => ({
+    'ชื่อ': p.name,
+    'จำนวนเคส': p.caseCount,
+    'เบี้ยรวม': p.totalPremium,
+    'ค่าบำเหน็จรวม': Math.round(p.totalCommission * 100) / 100,
+    'สร้างทีม (คน)': p.teamBuildingCount,
+    'รางวัลที่ได้รับ': (awardLabels.get(p.name) || []).join(', ') || '-',
+    'หมายเหตุ': p.missingRate ? 'มีรายการที่ยังไม่ระบุแบบประกัน' : ''
+  }));
+
+  const detailRows = [];
+  premiumData.entries.forEach(e => {
+    const riderNames = (e.riders || []).map(r => r.productType || 'สัญญาเพิ่มเติม').join(', ') || '-';
+    const total = e.premium + (e.riders || []).reduce((s, r) => s + r.premium, 0);
+    detailRows.push({
+      'ชื่อ': e.name,
+      'กลุ่ม': e.group || '-',
+      'แบบประกันหลัก': e.productType || '-',
+      'เบี้ยสัญญาหลัก': e.premium,
+      'สัญญาเพิ่มเติม': riderNames,
+      'เบี้ยรวมเคสนี้': total
+    });
+  });
+
+  const wb = XLSX.utils.book_new();
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 40 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'สรุปรางวัล');
+
+  const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+  wsDetail['!cols'] = [{ wch: 24 }, { wch: 8 }, { wch: 30 }, { wch: 14 }, { wch: 40 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, wsDetail, 'รายละเอียดแบบประกัน');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `SA-Asoke-Awards-${dateStr}.xlsx`);
+}
+
+document.getElementById('sa-awards-excel').addEventListener('click', exportAwardsExcel);
+
 document.getElementById('sa-asoke-print').addEventListener('click', () => {
   saAsokeEditingId = null;
   renderSaAsoke(grandTotal());

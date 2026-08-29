@@ -480,7 +480,17 @@ app.get('/api/sa-asoke/awards', async (req, res) => {
     type1: { top: type1Top, consolation: type1Consolation },
     type2: { top: type2Top },
     type3: { top: type3Top },
-    peopleMissingRate: people.filter(p => p.missingRate).map(p => p.name)
+    peopleMissingRate: people.filter(p => p.missingRate).map(p => p.name),
+    allPeople: people
+      .map(p => ({
+        name: p.name,
+        caseCount: p.caseCount,
+        totalPremium: p.totalPremium,
+        totalCommission: p.totalCommission,
+        missingRate: p.missingRate,
+        teamBuildingCount: recruitCounts.get(p.name) || 0
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'th'))
   });
 });
 
