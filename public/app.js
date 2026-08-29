@@ -1033,8 +1033,11 @@ function renderAwardTable(title, entries, valueLabel, valueFormatter) {
   `;
 }
 
+let lastAwardsData = null;
+
 async function computeSaAwards() {
   const data = await api('/sa-asoke/awards');
+  lastAwardsData = data;
   const missing = document.getElementById('sa-awards-missing-rate');
   if (data.peopleMissingRate.length) {
     missing.style.display = 'block';
@@ -1062,6 +1065,129 @@ async function computeSaAwards() {
 
 document.getElementById('sa-awards-compute').addEventListener('click', computeSaAwards);
 document.getElementById('sa-awards-print').addEventListener('click', () => window.print());
+document.getElementById('sa-awards-image').addEventListener('click', exportAwardsImage);
+
+function exportAwardsImage() {
+  if (!lastAwardsData) {
+    toast('กรุณากดคำนวณรางวัลก่อน');
+    return;
+  }
+  const data = lastAwardsData;
+
+  const sections = [];
+  sections.push({
+    title: 'ประเภท 1: ค่าบำเหน็จสะสมสูงสุด (ตั้งแต่ 10,000 บาทขึ้นไป)',
+    cols: ['อันดับ', 'ชื่อ', 'ค่าบำเหน็จ', 'รางวัล'],
+    rows: data.type1.top.map(e => ['อันดับ ' + e.rank, e.name + (e.missingRate ? ' ⚠️' : ''), formatBaht(e.value), formatBaht(e.prize)])
+  });
+  if (data.type1.consolation.length) {
+    sections.push({
+      title: 'รางวัลชมเชย ประเภทที่ 1 (ค่าบำเหน็จเกิน 10,000 บาท, 700 บาท)',
+      cols: ['ชื่อ', 'ค่าบำเหน็จ', 'รางวัล'],
+      rows: data.type1.consolation.map(e => [e.name + (e.missingRate ? ' ⚠️' : ''), formatBaht(e.value), formatBaht(e.prize)])
+    });
+  }
+  sections.push({
+    title: 'ประเภท 2: จำนวนเคสใหม่สูงสุด (ตั้งแต่ 4 เคสขึ้นไป)',
+    cols: ['อันดับ', 'ชื่อ', 'จำนวนเคส', 'รางวัล'],
+    rows: data.type2.top.map(e => ['อันดับ ' + e.rank, e.name, String(e.value), formatBaht(e.prize)])
+  });
+  sections.push({
+    title: 'ประเภท 3: สร้างทีมสูงสุด (เปิด New Code/New Case 2 คนขึ้นไป)',
+    cols: ['อันดับ', 'ชื่อ', 'จำนวนคน', 'รางวัล'],
+    rows: data.type3.top.map(e => ['อันดับ ' + e.rank, e.name, String(e.value), formatBaht(e.prize)])
+  });
+
+  const pad = 24;
+  const width = 720;
+  const titleH = 56;
+  const sectionTitleH = 34;
+  const headerH = 32;
+  const rowH = 30;
+  const emptyH = 30;
+  const sectionGap = 16;
+
+  let height = pad * 2 + titleH;
+  sections.forEach(s => {
+    height += sectionTitleH + headerH + (s.rows.length ? s.rows.length * rowH : emptyH) + sectionGap;
+  });
+
+  const canvas = document.createElement('canvas');
+  const scale = 2;
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#0b0b0b';
+  ctx.font = '700 20px Sarabun, "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('สรุปรางวัล SA Asoke', pad, pad + titleH / 2);
+
+  let y = pad + titleH;
+  const tableWidth = width - pad * 2;
+
+  sections.forEach(s => {
+    ctx.fillStyle = '#0b0b0b';
+    ctx.font = '600 15px Sarabun, "Segoe UI", sans-serif';
+    ctx.fillText(truncateToWidth(ctx, s.title, tableWidth), pad, y + sectionTitleH / 2);
+    y += sectionTitleH;
+
+    const colCount = s.cols.length;
+    const nameColIdx = s.cols.indexOf('ชื่อ');
+    const colWidths = s.cols.map((c, i) => i === nameColIdx ? tableWidth * 0.38 : (tableWidth - tableWidth * 0.38) / (colCount - 1));
+    const colX = [];
+    let cx = pad;
+    colWidths.forEach(w => { colX.push(cx); cx += w; });
+
+    ctx.fillStyle = '#2a78d6';
+    ctx.fillRect(pad, y, tableWidth, headerH);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '600 13px Sarabun, "Segoe UI", sans-serif';
+    s.cols.forEach((c, i) => {
+      ctx.textAlign = i === nameColIdx ? 'left' : 'right';
+      const tx = i === nameColIdx ? colX[i] + 10 : colX[i] + colWidths[i] - 10;
+      ctx.fillText(c, tx, y + headerH / 2);
+    });
+    y += headerH;
+
+    ctx.font = '13px Sarabun, "Segoe UI", sans-serif';
+    if (!s.rows.length) {
+      ctx.fillStyle = '#898781';
+      ctx.textAlign = 'left';
+      ctx.fillText('ไม่มีผู้เข้าเกณฑ์', pad + 10, y + emptyH / 2);
+      y += emptyH;
+    }
+    s.rows.forEach((row, i) => {
+      if (i % 2 === 1) {
+        ctx.fillStyle = '#f5f4f1';
+        ctx.fillRect(pad, y, tableWidth, rowH);
+      }
+      ctx.fillStyle = '#0b0b0b';
+      row.forEach((val, ci) => {
+        ctx.textAlign = ci === nameColIdx ? 'left' : 'right';
+        const tx = ci === nameColIdx ? colX[ci] + 10 : colX[ci] + colWidths[ci] - 10;
+        ctx.fillText(truncateToWidth(ctx, val, colWidths[ci] - 20), tx, y + rowH / 2);
+      });
+      y += rowH;
+    });
+    y += sectionGap;
+  });
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SA-Asoke-Awards-${dateStr}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
 document.getElementById('sa-asoke-print').addEventListener('click', () => {
   saAsokeEditingId = null;
