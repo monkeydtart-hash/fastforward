@@ -61,7 +61,7 @@ function loadTab(tab) {
   if (tab === 'events') loadEvents();
   if (tab === 'commission') loadCommission();
   if (tab === 'mdrt') loadMdrt();
-  if (tab === 'sa-asoke') loadSaAsoke();
+  if (tab === 'sa-asoke') { loadSaAsoke(); loadSaRates(); loadSaRecruits(); }
   if (tab === 'shirts') loadShirts();
   if (tab === 'members') loadMembers();
 }
@@ -685,6 +685,7 @@ function renderSaAsoke(total) {
         <tr>
           <td><input type="text" class="sa-edit-name" value="${escapeAttr(e.name)}"></td>
           <td><input type="text" class="sa-edit-group" value="${escapeAttr(e.group)}" style="width:60px"></td>
+          <td><select class="sa-edit-product-type" style="max-width:220px">${buildFlatRateOptions(e.commissionRateRuleId)}</select></td>
           <td><input type="number" class="sa-edit-premium" min="0" step="0.01" value="${e.premium}" style="width:110px"></td>
           <td class="no-print">
             <button class="ghost" data-save-sa="${e.id}">บันทึก</button>
@@ -697,6 +698,7 @@ function renderSaAsoke(total) {
       <tr>
         <td>${escapeHtml(e.name)}</td>
         <td>${escapeHtml(e.group || '-')}</td>
+        <td>${escapeHtml(e.productType || '-')}</td>
         <td>${formatBaht(e.premium)}</td>
         <td class="no-print">
           <button class="ghost" data-edit-sa="${e.id}">แก้ไข</button>
@@ -721,9 +723,14 @@ function renderSaAsoke(total) {
   tbody.querySelectorAll('[data-save-sa]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const row = btn.closest('tr');
+      const select = row.querySelector('.sa-edit-product-type');
+      const ruleId = select.value || null;
+      const rule = ruleId ? saRateCache.find(r => r.id === ruleId) : null;
       const payload = {
         name: row.querySelector('.sa-edit-name').value,
         group: row.querySelector('.sa-edit-group').value,
+        productType: rule ? productLabel(rule) : '',
+        commissionRateRuleId: ruleId,
         premium: Number(row.querySelector('.sa-edit-premium').value)
       };
       if (!payload.name || !Number.isFinite(payload.premium)) {
@@ -744,18 +751,311 @@ function renderSaAsoke(total) {
   });
 }
 
+function productKey(r) { return r.productCode + '||' + r.productName; }
+
+function productLabel(r) {
+  let label = r.productCode + ' - ' + r.productName;
+  const extra = [r.ageRange, r.conditionLabel].filter(Boolean).join(', ');
+  if (extra) label += ' (' + extra + ')';
+  return label;
+}
+
+function buildFlatRateOptions(selectedId) {
+  const byCategory = new Map();
+  saRateCache.forEach(r => {
+    if (!byCategory.has(r.category)) byCategory.set(r.category, []);
+    byCategory.get(r.category).push(r);
+  });
+  let html = '<option value="">-- ไม่ระบุ --</option>';
+  byCategory.forEach((list, category) => {
+    html += `<optgroup label="${escapeAttr(category)}">`;
+    html += list.map(r => `<option value="${r.id}" ${r.id === selectedId ? 'selected' : ''}>${escapeHtml(productLabel(r))} — ${r.year1Rate ?? '-'}%</option>`).join('');
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function populateProductSelect() {
+  const select = document.getElementById('sa-product-select');
+  const byCategory = new Map();
+  const seenKeys = new Set();
+  saRateCache.forEach(r => {
+    const key = productKey(r);
+    if (seenKeys.has(key)) return;
+    seenKeys.add(key);
+    if (!byCategory.has(r.category)) byCategory.set(r.category, []);
+    byCategory.get(r.category).push(r);
+  });
+  let html = '<option value="">-- เลือกแบบประกัน --</option>';
+  byCategory.forEach((list, category) => {
+    html += `<optgroup label="${escapeAttr(category)}">`;
+    html += list.map(r => `<option value="${escapeAttr(productKey(r))}">${escapeHtml(r.productCode + ' - ' + r.productName)}</option>`).join('');
+    html += '</optgroup>';
+  });
+  select.innerHTML = html;
+}
+
+function updateConditionSelect() {
+  const productSelect = document.getElementById('sa-product-select');
+  const conditionSelect = document.getElementById('sa-condition-select');
+  const key = productSelect.value;
+  const matches = saRateCache.filter(r => productKey(r) === key);
+  if (!key || matches.length === 0) {
+    conditionSelect.style.display = 'none';
+    conditionSelect.innerHTML = '';
+    updateCommissionPreview();
+    return;
+  }
+  if (matches.length === 1) {
+    conditionSelect.style.display = 'none';
+    conditionSelect.innerHTML = `<option value="${matches[0].id}" selected></option>`;
+    updateCommissionPreview();
+    return;
+  }
+  conditionSelect.style.display = '';
+  conditionSelect.innerHTML = matches.map(r => {
+    const label = [r.ageRange, r.conditionLabel].filter(Boolean).join(', ') || r.productName;
+    return `<option value="${r.id}">${escapeHtml(label)} — ${r.year1Rate ?? '-'}%</option>`;
+  }).join('');
+  updateCommissionPreview();
+}
+
+function getSelectedRuleId() {
+  const conditionSelect = document.getElementById('sa-condition-select');
+  return conditionSelect.value || null;
+}
+
+function updateCommissionPreview() {
+  const preview = document.getElementById('sa-commission-preview');
+  const ruleId = getSelectedRuleId();
+  const premium = Number(document.getElementById('sa-premium').value);
+  const rule = ruleId ? saRateCache.find(r => r.id === ruleId) : null;
+  if (!rule || !Number.isFinite(premium) || rule.year1Rate === null) {
+    preview.style.display = 'none';
+    return;
+  }
+  preview.style.display = 'block';
+  preview.textContent = `ค่าบำเหน็จโดยประมาณ (ปีแรก): ${formatBaht(premium * rule.year1Rate / 100)} (${rule.year1Rate}%)`;
+}
+
+document.getElementById('sa-product-select').addEventListener('change', updateConditionSelect);
+document.getElementById('sa-condition-select').addEventListener('change', updateCommissionPreview);
+document.getElementById('sa-premium').addEventListener('input', updateCommissionPreview);
+
 document.getElementById('form-sa-asoke').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const ruleId = getSelectedRuleId();
+  const rule = ruleId ? saRateCache.find(r => r.id === ruleId) : null;
   const payload = {
     name: document.getElementById('sa-name').value,
     group: document.getElementById('sa-group').value,
+    productType: rule ? productLabel(rule) : '',
+    commissionRateRuleId: ruleId,
     premium: Number(document.getElementById('sa-premium').value)
   };
   await api('/sa-asoke', { method: 'POST', body: JSON.stringify(payload) });
   toast('เพิ่มรายการแล้ว');
   e.target.reset();
+  document.getElementById('sa-condition-select').style.display = 'none';
+  document.getElementById('sa-commission-preview').style.display = 'none';
   loadSaAsoke();
 });
+
+// ---------- Commission rate rules (ตารางค่าคอม) ----------
+let saRateCache = [];
+
+async function loadSaRates() {
+  saRateCache = await api('/sa-asoke/commission-rates');
+  renderSaRates();
+  populateProductSelect();
+}
+
+function renderSaRates(filterText) {
+  const tbody = document.getElementById('sa-rate-tbody');
+  const empty = document.getElementById('sa-rate-empty');
+  const filter = (filterText || '').trim().toLowerCase();
+  const list = filter
+    ? saRateCache.filter(r => (r.productCode + ' ' + r.productName).toLowerCase().includes(filter))
+    : saRateCache;
+  if (!list.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    empty.textContent = filter ? 'ไม่พบแบบประกันที่ค้นหา' : 'ยังไม่มีอัตราค่าบำเหน็จ';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = list.map(r => `
+    <tr>
+      <td>${escapeHtml(r.category)}</td>
+      <td>${escapeHtml(r.productCode)}</td>
+      <td>${escapeHtml(r.productName)}</td>
+      <td>${escapeHtml(r.ageRange || '-')}</td>
+      <td>${escapeHtml(r.conditionLabel || '-')}</td>
+      <td>${r.year1Rate === null ? '-' : r.year1Rate + '%'}</td>
+      <td class="no-print">
+        <button class="ghost" data-edit-sa-rate="${r.id}">แก้ไข</button>
+        <button class="ghost" data-del-sa-rate="${r.id}">ลบ</button>
+      </td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('[data-del-sa-rate]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบแบบประกันนี้? (รายการเบี้ยที่เคยผูกไว้จะไม่ถูกลบ แต่จะไม่มีอัตราให้คำนวณอีก)')) return;
+      await api('/sa-asoke/commission-rates/' + btn.dataset.delSaRate, { method: 'DELETE' });
+      loadSaRates();
+    });
+  });
+  tbody.querySelectorAll('[data-edit-sa-rate]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const r = saRateCache.find(x => x.id === btn.dataset.editSaRate);
+      if (!r) return;
+      document.getElementById('sa-rate-id').value = r.id;
+      document.getElementById('sa-rate-category').value = r.category;
+      document.getElementById('sa-rate-code').value = r.productCode;
+      document.getElementById('sa-rate-name').value = r.productName;
+      document.getElementById('sa-rate-age').value = r.ageRange;
+      document.getElementById('sa-rate-condition').value = r.conditionLabel;
+      document.getElementById('sa-rate-year1').value = r.year1Rate ?? '';
+      document.querySelector('#tab-sa-asoke details').open = true;
+    });
+  });
+}
+
+document.getElementById('sa-rate-search').addEventListener('input', (e) => renderSaRates(e.target.value));
+
+document.getElementById('sa-rate-form-cancel').addEventListener('click', () => {
+  document.getElementById('form-sa-rate').reset();
+  document.getElementById('sa-rate-id').value = '';
+});
+
+document.getElementById('form-sa-rate').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('sa-rate-id').value;
+  const payload = {
+    category: document.getElementById('sa-rate-category').value,
+    productCode: document.getElementById('sa-rate-code').value,
+    productName: document.getElementById('sa-rate-name').value,
+    ageRange: document.getElementById('sa-rate-age').value,
+    conditionLabel: document.getElementById('sa-rate-condition').value,
+    year1Rate: Number(document.getElementById('sa-rate-year1').value)
+  };
+  if (!payload.category || !payload.productCode || !payload.productName || !Number.isFinite(payload.year1Rate)) {
+    toast('กรุณากรอกข้อมูลให้ครบถ้วน');
+    return;
+  }
+  if (id) {
+    await api('/sa-asoke/commission-rates/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+  } else {
+    await api('/sa-asoke/commission-rates', { method: 'POST', body: JSON.stringify(payload) });
+  }
+  toast('บันทึกแบบประกันแล้ว');
+  e.target.reset();
+  document.getElementById('sa-rate-id').value = '';
+  loadSaRates();
+});
+
+// ---------- SA Asoke team building (recruits) ----------
+let saRecruitCache = [];
+
+async function loadSaRecruits() {
+  saRecruitCache = await api('/sa-asoke/recruits');
+  renderSaRecruits();
+}
+
+function renderSaRecruits() {
+  const tbody = document.getElementById('sa-recruit-tbody');
+  const empty = document.getElementById('sa-recruit-empty');
+  if (!saRecruitCache.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = saRecruitCache.map(r => `
+    <tr>
+      <td>${escapeHtml(r.recruiterName)}</td>
+      <td>${escapeHtml(r.newAgentName)}</td>
+      <td>${r.caseOpened ? '✅' : '—'}</td>
+      <td>${escapeHtml(r.note || '-')}</td>
+      <td class="no-print"><button class="ghost" data-del-sa-recruit="${r.id}">ลบ</button></td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('[data-del-sa-recruit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรายการนี้?')) return;
+      await api('/sa-asoke/recruits/' + btn.dataset.delSaRecruit, { method: 'DELETE' });
+      loadSaRecruits();
+    });
+  });
+}
+
+document.getElementById('form-sa-recruit').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    recruiterName: document.getElementById('sa-recruit-recruiter').value,
+    newAgentName: document.getElementById('sa-recruit-new-agent').value,
+    caseOpened: document.getElementById('sa-recruit-case-opened').checked,
+    note: document.getElementById('sa-recruit-note').value
+  };
+  await api('/sa-asoke/recruits', { method: 'POST', body: JSON.stringify(payload) });
+  toast('เพิ่มรายการแล้ว');
+  e.target.reset();
+  loadSaRecruits();
+});
+
+// ---------- SA Asoke awards summary ----------
+function renderAwardTable(title, entries, valueLabel, valueFormatter) {
+  if (!entries.length) {
+    return `<h3>${title}</h3><div class="empty">ไม่มีผู้เข้าเกณฑ์</div>`;
+  }
+  const rows = entries.map(e => `
+    <tr>
+      <td>${e.rank ? 'อันดับ ' + e.rank : ''}</td>
+      <td>${escapeHtml(e.name)}${e.missingRate ? ' ⚠️' : ''}</td>
+      <td>${valueFormatter(e.value)}</td>
+      <td>${formatBaht(e.prize)}</td>
+    </tr>
+  `).join('');
+  return `
+    <h3>${title}</h3>
+    <div class="table-scroll">
+      <table class="data">
+        <thead><tr><th>อันดับ</th><th>ชื่อ</th><th>${valueLabel}</th><th>รางวัล</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function computeSaAwards() {
+  const data = await api('/sa-asoke/awards');
+  const missing = document.getElementById('sa-awards-missing-rate');
+  if (data.peopleMissingRate.length) {
+    missing.style.display = 'block';
+    missing.textContent = '⚠️ ยังไม่มีอัตราค่าบำเหน็จครบสำหรับ: ' + data.peopleMissingRate.join(', ') + ' (ค่าบำเหน็จของรายการที่ไม่ทราบแบบประกันจะไม่ถูกนับ)';
+  } else {
+    missing.style.display = 'none';
+  }
+
+  const result = document.getElementById('sa-awards-result');
+  result.innerHTML = [
+    renderAwardTable('ประเภท 1: ค่าบำเหน็จสะสมสูงสุด (ตั้งแต่ 10,000 บาทขึ้นไป)', data.type1.top, 'ค่าบำเหน็จ', formatBaht),
+    data.type1.consolation.length ? `
+      <h3>รางวัลชมเชย ประเภทที่ 1 (ค่าบำเหน็จเกิน 10,000 บาท, 700 บาท)</h3>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>ชื่อ</th><th>ค่าบำเหน็จ</th><th>รางวัล</th></tr></thead>
+          <tbody>${data.type1.consolation.map(e => `<tr><td>${escapeHtml(e.name)}${e.missingRate ? ' ⚠️' : ''}</td><td>${formatBaht(e.value)}</td><td>${formatBaht(e.prize)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    ` : '',
+    renderAwardTable('ประเภท 2: จำนวนเคสใหม่สูงสุด (ตั้งแต่ 4 เคสขึ้นไป)', data.type2.top, 'จำนวนเคส', v => v),
+    renderAwardTable('ประเภท 3: สร้างทีมสูงสุด (เปิด New Code/New Case 2 คนขึ้นไป)', data.type3.top, 'จำนวนคน', v => v)
+  ].join('');
+}
+
+document.getElementById('sa-awards-compute').addEventListener('click', computeSaAwards);
+document.getElementById('sa-awards-print').addEventListener('click', () => window.print());
 
 document.getElementById('sa-asoke-print').addEventListener('click', () => {
   saAsokeEditingId = null;

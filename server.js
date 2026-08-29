@@ -56,7 +56,43 @@ function mapShirtOrder(r) {
 }
 
 function mapSaAsokePremium(r) {
-  return { id: String(r.id), name: r.name, group: r.group_no, premium: Number(r.premium), createdAt: r.created_at.toISOString() };
+  return {
+    id: String(r.id),
+    name: r.name,
+    group: r.group_no,
+    premium: Number(r.premium),
+    productType: r.product_type,
+    commissionRateRuleId: r.commission_rate_rule_id ? String(r.commission_rate_rule_id) : null,
+    createdAt: r.created_at.toISOString()
+  };
+}
+
+function mapCommissionRateRule(r) {
+  return {
+    id: String(r.id),
+    category: r.category,
+    productCode: r.product_code,
+    productName: r.product_name,
+    ageRange: r.age_range,
+    conditionLabel: r.condition_label,
+    year1Rate: r.year1_rate === null ? null : Number(r.year1_rate),
+    otherYearsNote: r.other_years_note,
+    productionPct: r.production_pct === null ? null : Number(r.production_pct),
+    comPlus: r.com_plus === null ? null : Number(r.com_plus),
+    comPlusNote: r.com_plus_note,
+    laBonus: r.la_bonus === null ? null : Number(r.la_bonus)
+  };
+}
+
+function mapSaAsokeRecruit(r) {
+  return {
+    id: String(r.id),
+    recruiterName: r.recruiter_name,
+    newAgentName: r.new_agent_name,
+    caseOpened: r.case_opened,
+    note: r.note,
+    createdAt: r.created_at.toISOString()
+  };
 }
 
 // ---- Members ----
@@ -201,25 +237,25 @@ app.get('/api/sa-asoke', async (req, res) => {
 });
 
 app.post('/api/sa-asoke', async (req, res) => {
-  const { name, group, premium } = req.body;
+  const { name, group, premium, productType, commissionRateRuleId } = req.body;
   if (!name || typeof premium !== 'number') {
     return res.status(400).json({ error: 'name and numeric premium required' });
   }
   const { rows } = await pool.query(
-    'insert into sa_asoke_premiums (name, group_no, premium) values ($1, $2, $3) returning *',
-    [name, group || '', premium]
+    'insert into sa_asoke_premiums (name, group_no, premium, product_type, commission_rate_rule_id) values ($1, $2, $3, $4, $5) returning *',
+    [name, group || '', premium, productType || '', commissionRateRuleId || null]
   );
   res.json(mapSaAsokePremium(rows[0]));
 });
 
 app.put('/api/sa-asoke/:id', async (req, res) => {
-  const { name, group, premium } = req.body;
+  const { name, group, premium, productType, commissionRateRuleId } = req.body;
   if (!name || typeof premium !== 'number') {
     return res.status(400).json({ error: 'name and numeric premium required' });
   }
   const { rows } = await pool.query(
-    'update sa_asoke_premiums set name = $1, group_no = $2, premium = $3 where id = $4 returning *',
-    [name, group || '', premium, req.params.id]
+    'update sa_asoke_premiums set name = $1, group_no = $2, premium = $3, product_type = $4, commission_rate_rule_id = $5 where id = $6 returning *',
+    [name, group || '', premium, productType || '', commissionRateRuleId || null, req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
   res.json(mapSaAsokePremium(rows[0]));
@@ -228,6 +264,151 @@ app.put('/api/sa-asoke/:id', async (req, res) => {
 app.delete('/api/sa-asoke/:id', async (req, res) => {
   await pool.query('delete from sa_asoke_premiums where id = $1', [req.params.id]);
   res.json({ ok: true });
+});
+
+// ---- Commission rate rules (ตารางค่าคอม) ----
+app.get('/api/sa-asoke/commission-rates', async (req, res) => {
+  const { rows } = await pool.query('select * from commission_rate_rules order by category, product_code, id');
+  res.json(rows.map(mapCommissionRateRule));
+});
+
+app.post('/api/sa-asoke/commission-rates', async (req, res) => {
+  const { category, productCode, productName, ageRange, conditionLabel, year1Rate, otherYearsNote, productionPct, comPlus, comPlusNote, laBonus } = req.body;
+  if (!category || !productCode || !productName) {
+    return res.status(400).json({ error: 'category, productCode and productName required' });
+  }
+  const { rows } = await pool.query(
+    `insert into commission_rate_rules
+     (category, product_code, product_name, age_range, condition_label, year1_rate, other_years_note, production_pct, com_plus, com_plus_note, la_bonus)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *`,
+    [category, productCode, productName, ageRange || '', conditionLabel || '', year1Rate ?? null, otherYearsNote || '', productionPct ?? null, comPlus ?? null, comPlusNote || '', laBonus ?? null]
+  );
+  res.json(mapCommissionRateRule(rows[0]));
+});
+
+app.put('/api/sa-asoke/commission-rates/:id', async (req, res) => {
+  const { category, productCode, productName, ageRange, conditionLabel, year1Rate, otherYearsNote, productionPct, comPlus, comPlusNote, laBonus } = req.body;
+  if (!category || !productCode || !productName) {
+    return res.status(400).json({ error: 'category, productCode and productName required' });
+  }
+  const { rows } = await pool.query(
+    `update commission_rate_rules set
+     category = $1, product_code = $2, product_name = $3, age_range = $4, condition_label = $5,
+     year1_rate = $6, other_years_note = $7, production_pct = $8, com_plus = $9, com_plus_note = $10, la_bonus = $11
+     where id = $12 returning *`,
+    [category, productCode, productName, ageRange || '', conditionLabel || '', year1Rate ?? null, otherYearsNote || '', productionPct ?? null, comPlus ?? null, comPlusNote || '', laBonus ?? null, req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.json(mapCommissionRateRule(rows[0]));
+});
+
+app.delete('/api/sa-asoke/commission-rates/:id', async (req, res) => {
+  await pool.query('delete from commission_rate_rules where id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ---- SA Asoke team building (สร้างทีม เปิด New Code/New Case) ----
+app.get('/api/sa-asoke/recruits', async (req, res) => {
+  const { rows } = await pool.query('select * from sa_asoke_recruits order by id');
+  res.json(rows.map(mapSaAsokeRecruit));
+});
+
+app.post('/api/sa-asoke/recruits', async (req, res) => {
+  const { recruiterName, newAgentName, caseOpened, note } = req.body;
+  if (!recruiterName || !newAgentName) {
+    return res.status(400).json({ error: 'recruiterName and newAgentName required' });
+  }
+  const { rows } = await pool.query(
+    'insert into sa_asoke_recruits (recruiter_name, new_agent_name, case_opened, note) values ($1, $2, $3, $4) returning *',
+    [recruiterName, newAgentName, !!caseOpened, note || '']
+  );
+  res.json(mapSaAsokeRecruit(rows[0]));
+});
+
+app.put('/api/sa-asoke/recruits/:id', async (req, res) => {
+  const { recruiterName, newAgentName, caseOpened, note } = req.body;
+  if (!recruiterName || !newAgentName) {
+    return res.status(400).json({ error: 'recruiterName and newAgentName required' });
+  }
+  const { rows } = await pool.query(
+    'update sa_asoke_recruits set recruiter_name = $1, new_agent_name = $2, case_opened = $3, note = $4 where id = $5 returning *',
+    [recruiterName, newAgentName, !!caseOpened, note || '', req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.json(mapSaAsokeRecruit(rows[0]));
+});
+
+app.delete('/api/sa-asoke/recruits/:id', async (req, res) => {
+  await pool.query('delete from sa_asoke_recruits where id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ---- SA Asoke awards summary ----
+app.get('/api/sa-asoke/awards', async (req, res) => {
+  const [premiumsRes, rulesRes, recruitsRes] = await Promise.all([
+    pool.query('select * from sa_asoke_premiums order by id'),
+    pool.query('select * from commission_rate_rules'),
+    pool.query('select * from sa_asoke_recruits order by id')
+  ]);
+
+  const rateById = new Map(rulesRes.rows.map(r => [String(r.id), r.year1_rate === null ? null : Number(r.year1_rate)]));
+  const premiums = premiumsRes.rows.map(mapSaAsokePremium);
+
+  const byPerson = new Map();
+  const ensurePerson = (name) => {
+    if (!byPerson.has(name)) {
+      byPerson.set(name, { name, caseCount: 0, totalPremium: 0, totalCommission: 0, missingRate: false });
+    }
+    return byPerson.get(name);
+  };
+
+  for (const p of premiums) {
+    const person = ensurePerson(p.name);
+    person.caseCount += 1;
+    person.totalPremium += p.premium;
+    const rate = p.commissionRateRuleId ? rateById.get(p.commissionRateRuleId) : null;
+    if (rate !== null && rate !== undefined) {
+      person.totalCommission += p.premium * (rate / 100);
+    } else {
+      person.missingRate = true;
+    }
+  }
+
+  const recruitCounts = new Map();
+  for (const r of recruitsRes.rows) {
+    if (!r.case_opened) continue;
+    recruitCounts.set(r.recruiter_name, (recruitCounts.get(r.recruiter_name) || 0) + 1);
+  }
+
+  const people = [...byPerson.values()];
+
+  const tierPrizes = [1700, 1500, 1300];
+  const rankTop3 = (list) => list.slice(0, 3).map((entry, i) => ({ ...entry, rank: i + 1, prize: tierPrizes[i] }));
+
+  // ประเภท 1: ค่าบำเหน็จสะสมสูงสุด ตั้งแต่ 10,000 บาทขึ้นไป
+  const eligible1 = people.filter(p => p.totalCommission >= 10000)
+    .sort((a, b) => b.totalCommission - a.totalCommission);
+  const type1Top = rankTop3(eligible1.map(p => ({ name: p.name, value: p.totalCommission, missingRate: p.missingRate })));
+  const type1Consolation = eligible1.slice(3, 3 + 21).map(p => ({ name: p.name, value: p.totalCommission, prize: 700, missingRate: p.missingRate }));
+
+  // ประเภท 2: จำนวนเคสใหม่สูงสุด ตั้งแต่ 4 เคสขึ้นไป (เสมอกันตัดสินที่ค่าบำเหน็จ)
+  const eligible2 = people.filter(p => p.caseCount >= 4)
+    .sort((a, b) => b.caseCount - a.caseCount || b.totalCommission - a.totalCommission);
+  const type2Top = rankTop3(eligible2.map(p => ({ name: p.name, value: p.caseCount, tiebreak: p.totalCommission })));
+
+  // ประเภท 3: สร้างทีมสูงสุด เปิด New Code/New Case 2 คนขึ้นไป (เสมอกันตัดสินที่ค่าบำเหน็จ)
+  const eligible3 = [...recruitCounts.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([name, count]) => ({ name, value: count, tiebreak: (byPerson.get(name) || { totalCommission: 0 }).totalCommission }))
+    .sort((a, b) => b.value - a.value || b.tiebreak - a.tiebreak);
+  const type3Top = rankTop3(eligible3);
+
+  res.json({
+    type1: { top: type1Top, consolation: type1Consolation },
+    type2: { top: type2Top },
+    type3: { top: type3Top },
+    peopleMissingRate: people.filter(p => p.missingRate).map(p => p.name)
+  });
 });
 
 // ---- MDRT tracking ----
