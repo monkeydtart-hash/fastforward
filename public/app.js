@@ -1134,6 +1134,7 @@ function exportAwardsImage() {
   sections.forEach(s => {
     ctx.fillStyle = '#0b0b0b';
     ctx.font = '600 15px Sarabun, "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
     ctx.fillText(truncateToWidth(ctx, s.title, tableWidth), pad, y + sectionTitleH / 2);
     y += sectionTitleH;
 
