@@ -431,68 +431,6 @@
     </div>
 
     <div class="card no-print">
-      <div class="section-header">
-        <h2 style="margin:0"><span class="h2-icon">💰</span>ตารางค่าคอม (ปีแรก)</h2>
-      </div>
-      <input type="text" id="sa-rate-search" placeholder="ค้นหารหัส/ชื่อแบบประกัน..." style="margin-bottom:8px;width:100%;box-sizing:border-box">
-      <div class="table-scroll">
-        <table class="data" id="sa-rate-table">
-          <thead>
-            <tr>
-              <th>หมวด</th>
-              <th>รหัส</th>
-              <th>ชื่อแบบประกัน</th>
-              <th>พิกัดอายุ</th>
-              <th>เงื่อนไข</th>
-              <th>คอม (ปีแรก)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="sa-rate-tbody"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="sa-rate-empty" style="display:none">ยังไม่มีอัตราค่าบำเหน็จ</div>
-      <details style="margin-top:12px">
-        <summary style="cursor:pointer">เพิ่ม/แก้ไขแบบประกันใหม่ด้วยตนเอง</summary>
-        <form class="stack" id="form-sa-rate" style="margin-top:8px">
-          <input type="hidden" id="sa-rate-id">
-          <div class="row2">
-            <div class="field">
-              <label>หมวด</label>
-              <input type="text" id="sa-rate-category" placeholder="เช่น ตลอดชีพ" required>
-            </div>
-            <div class="field">
-              <label>รหัส</label>
-              <input type="text" id="sa-rate-code" placeholder="เช่น EQ" required>
-            </div>
-          </div>
-          <div class="field">
-            <label>ชื่อแบบประกัน</label>
-            <input type="text" id="sa-rate-name" placeholder="ชื่อแบบประกัน" required>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label>พิกัดอายุ</label>
-              <input type="text" id="sa-rate-age" placeholder="เช่น 0-70">
-            </div>
-            <div class="field">
-              <label>เงื่อนไข</label>
-              <input type="text" id="sa-rate-condition" placeholder="เช่น ทุน < 1 ล้าน">
-            </div>
-          </div>
-          <div class="field">
-            <label>% บำเหน็จปีแรก (คอม)</label>
-            <input type="number" id="sa-rate-year1" step="0.01" required>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button type="submit" class="primary">บันทึก</button>
-            <button type="button" class="ghost" id="sa-rate-form-cancel">ยกเลิก</button>
-          </div>
-        </form>
-      </details>
-    </div>
-
-    <div class="card no-print">
       <h2><span class="h2-icon">🤝</span>สร้างทีม (เปิด New Code / New Case)</h2>
       <div class="table-scroll">
         <table class="data" id="sa-recruit-table">

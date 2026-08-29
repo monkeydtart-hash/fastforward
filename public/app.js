@@ -952,98 +952,13 @@ document.getElementById('form-sa-asoke').addEventListener('submit', async (e) =>
   loadSaAsoke();
 });
 
-// ---------- Commission rate rules (ตารางค่าคอม) ----------
+// ---------- Commission rate rules (used by the product dropdowns; no browsing UI) ----------
 let saRateCache = [];
 
 async function loadSaRates() {
   saRateCache = await api('/sa-asoke/commission-rates');
-  renderSaRates();
   populateProductSelect();
 }
-
-function renderSaRates(filterText) {
-  const tbody = document.getElementById('sa-rate-tbody');
-  const empty = document.getElementById('sa-rate-empty');
-  const filter = (filterText || '').trim().toLowerCase();
-  const list = filter
-    ? saRateCache.filter(r => (r.productCode + ' ' + r.productName).toLowerCase().includes(filter))
-    : saRateCache;
-  if (!list.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    empty.textContent = filter ? 'ไม่พบแบบประกันที่ค้นหา' : 'ยังไม่มีอัตราค่าบำเหน็จ';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = list.map(r => `
-    <tr>
-      <td>${escapeHtml(r.category)}</td>
-      <td>${escapeHtml(r.productCode)}</td>
-      <td>${escapeHtml(r.productName)}</td>
-      <td>${escapeHtml(r.ageRange || '-')}</td>
-      <td>${escapeHtml(r.conditionLabel || '-')}</td>
-      <td>${r.year1Rate === null ? '-' : r.year1Rate + '%'}</td>
-      <td class="no-print">
-        <button class="ghost" data-edit-sa-rate="${r.id}">แก้ไข</button>
-        <button class="ghost" data-del-sa-rate="${r.id}">ลบ</button>
-      </td>
-    </tr>
-  `).join('');
-  tbody.querySelectorAll('[data-del-sa-rate]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('ลบแบบประกันนี้? (รายการเบี้ยที่เคยผูกไว้จะไม่ถูกลบ แต่จะไม่มีอัตราให้คำนวณอีก)')) return;
-      await api('/sa-asoke/commission-rates/' + btn.dataset.delSaRate, { method: 'DELETE' });
-      loadSaRates();
-    });
-  });
-  tbody.querySelectorAll('[data-edit-sa-rate]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const r = saRateCache.find(x => x.id === btn.dataset.editSaRate);
-      if (!r) return;
-      document.getElementById('sa-rate-id').value = r.id;
-      document.getElementById('sa-rate-category').value = r.category;
-      document.getElementById('sa-rate-code').value = r.productCode;
-      document.getElementById('sa-rate-name').value = r.productName;
-      document.getElementById('sa-rate-age').value = r.ageRange;
-      document.getElementById('sa-rate-condition').value = r.conditionLabel;
-      document.getElementById('sa-rate-year1').value = r.year1Rate ?? '';
-      document.querySelector('#tab-sa-asoke details').open = true;
-    });
-  });
-}
-
-document.getElementById('sa-rate-search').addEventListener('input', (e) => renderSaRates(e.target.value));
-
-document.getElementById('sa-rate-form-cancel').addEventListener('click', () => {
-  document.getElementById('form-sa-rate').reset();
-  document.getElementById('sa-rate-id').value = '';
-});
-
-document.getElementById('form-sa-rate').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const id = document.getElementById('sa-rate-id').value;
-  const payload = {
-    category: document.getElementById('sa-rate-category').value,
-    productCode: document.getElementById('sa-rate-code').value,
-    productName: document.getElementById('sa-rate-name').value,
-    ageRange: document.getElementById('sa-rate-age').value,
-    conditionLabel: document.getElementById('sa-rate-condition').value,
-    year1Rate: Number(document.getElementById('sa-rate-year1').value)
-  };
-  if (!payload.category || !payload.productCode || !payload.productName || !Number.isFinite(payload.year1Rate)) {
-    toast('กรุณากรอกข้อมูลให้ครบถ้วน');
-    return;
-  }
-  if (id) {
-    await api('/sa-asoke/commission-rates/' + id, { method: 'PUT', body: JSON.stringify(payload) });
-  } else {
-    await api('/sa-asoke/commission-rates', { method: 'POST', body: JSON.stringify(payload) });
-  }
-  toast('บันทึกแบบประกันแล้ว');
-  e.target.reset();
-  document.getElementById('sa-rate-id').value = '';
-  loadSaRates();
-});
 
 // ---------- SA Asoke team building (recruits) ----------
 let saRecruitCache = [];
